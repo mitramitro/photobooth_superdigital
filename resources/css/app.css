@@ -1,0 +1,97 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-brand-dark text-slate-100 font-sans antialiased selection:bg-brand-blue selection:text-brand-dark overflow-x-hidden;
+    background-image: 
+      radial-gradient(at 0% 0%, rgba(255, 46, 99, 0.12) 0px, transparent 50%),
+      radial-gradient(at 100% 0%, rgba(0, 242, 254, 0.12) 0px, transparent 50%),
+      radial-gradient(at 50% 100%, rgba(0, 245, 160, 0.08) 0px, transparent 50%);
+    background-attachment: fixed;
+  }
+}
+
+/* Modern Glassmorphism Card Utilities */
+.glass-panel {
+  background: rgba(21, 31, 50, 0.65);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.glass-panel-hover {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.glass-panel-hover:hover {
+  background: rgba(26, 38, 62, 0.85);
+  border-color: rgba(255, 255, 255, 0.18);
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+  transform: translateY(-2px);
+}
+
+/* RGB Glow Borders & Shadows */
+.glow-red {
+  box-shadow: 0 0 25px -5px rgba(255, 46, 99, 0.4);
+}
+
+.glow-blue {
+  box-shadow: 0 0 25px -5px rgba(0, 242, 254, 0.4);
+}
+
+.glow-green {
+  box-shadow: 0 0 25px -5px rgba(0, 245, 160, 0.4);
+}
+
+.border-glow-red {
+  border-color: #FF2E63;
+  box-shadow: 0 0 15px rgba(255, 46, 99, 0.3);
+}
+
+.border-glow-blue {
+  border-color: #00F2FE;
+  box-shadow: 0 0 15px rgba(0, 242, 254, 0.3);
+}
+
+.border-glow-green {
+  border-color: #00F5A0;
+  box-shadow: 0 0 15px rgba(0, 245, 160, 0.3);
+}
+
+/* Gradient Text Utilities */
+.text-gradient-rgb {
+  background: linear-gradient(135deg, #FF2E63 0%, #00F2FE 50%, #00F5A0 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.text-gradient-red-blue {
+  background: linear-gradient(135deg, #FF2E63 0%, #00F2FE 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.text-gradient-blue-green {
+  background: linear-gradient(135deg, #00F2FE 0%, #00F5A0 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #080C14;
+}
+::-webkit-scrollbar-thumb {
+  background: #1E2D4A;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #00F2FE;
+}

@@ -1,0 +1,194 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Photobooth Studio Sanctum API",
+    "description": "Dokumentasi OpenAPI Interaktif & Testing Sandbox untuk Aplikasi Mobile Photobooth Studio (Flutter / iOS / Android) terintegrasi Laravel Sanctum.",
+    "version": "1.0.0",
+    "contact": {
+      "name": "Photobooth Studio Dev Team",
+      "email": "dev@photobooth.studio"
+    }
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8000/api/v1",
+      "description": "Local Development Server"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "Sanctum Token"
+      }
+    }
+  },
+  "paths": {
+    "/auth/login": {
+      "post": {
+        "summary": "Autentikasi Aplikasi Mobile & Terbitkan Sanctum Bearer Token",
+        "description": "Mengirimkan email dan password untuk mendapatkan Sanctum Bearer Token yang digunakan dalam autentikasi API aplikasi mobile.",
+        "operationId": "mobileLogin",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "example": "mobile.dev@photobooth.com"
+                  },
+                  "password": {
+                    "type": "string",
+                    "example": "password"
+                  },
+                  "device_name": {
+                    "type": "string",
+                    "example": "iPhone 15 Pro Flutter Client"
+                  }
+                },
+                "required": ["email", "password"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Autentikasi Berhasil",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": "success",
+                  "message": "Sanctum bearer token generated successfully",
+                  "token": "1|sanctum_bearer_token_abc8891xyz",
+                  "user": {
+                    "name": "Mobile Developer User",
+                    "email": "mobile.dev@photobooth.com",
+                    "role": "mobile_client"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/booths": {
+      "get": {
+        "summary": "Daftar Perangkat Photobooth Aktif",
+        "description": "Mengambil daftar seluruh perangkat booth yang tersedia di lokasi event.",
+        "operationId": "getBooths",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Daftar Perangkat Booth Berhasil Diambil",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": "success",
+                  "data": [
+                    {
+                      "id": "BOOTH-01",
+                      "name": "Main Hall Booth",
+                      "status": "online",
+                      "location": "Zone A"
+                    },
+                    {
+                      "id": "BOOTH-02",
+                      "name": "VIP Stage Booth",
+                      "status": "online",
+                      "location": "Zone B"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sessions/create": {
+      "post": {
+        "summary": "Memicu Sesi Foto Photobooth via Mobile QR",
+        "description": "Memulai sesi pengerjaan photobooth langsung dari aplikasi mobile.",
+        "operationId": "createSession",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "booth_id": {
+                    "type": "string",
+                    "example": "BOOTH-01"
+                  },
+                  "frame_id": {
+                    "type": "string",
+                    "example": "cyberpunk-neon-4strip"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Sesi Berhasil Dibuat",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": "success",
+                  "message": "Photobooth session triggered via Sanctum API",
+                  "session_id": "SESH-8891",
+                  "qr_code_url": "https://photobooth.studio/share/qr/session8891"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/user": {
+      "get": {
+        "summary": "Profil Pengguna Terautentikasi",
+        "description": "Mengambil detail profil pengguna yang sedang login berdasarkan Bearer Token.",
+        "operationId": "getUserProfile",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Detail User Berhasil Diambil",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": "success",
+                  "user": {
+                    "id": 1,
+                    "name": "Admin Photobooth Studio",
+                    "email": "admin@photobooth.com"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,21 +1,22 @@
 import React, { useState } from 'react';
 import { Link, usePage } from '@inertiajs/react';
-import { 
-    LayoutDashboard, 
-    FolderKanban, 
-    Monitor, 
-    Image as ImageIcon, 
-    Receipt, 
-    User, 
-    Crown, 
-    Wallet, 
-    LogOut, 
-    Menu, 
-    X, 
-    Radio, 
+import {
+    LayoutDashboard,
+    FolderKanban,
+    Monitor,
+    Image as ImageIcon,
+    Receipt,
+    User,
+    Crown,
+    Wallet,
+    LogOut,
+    Menu,
+    X,
+    Radio,
     ChevronRight,
     Camera,
-    Play
+    Play,
+    ChevronDown,
 } from 'lucide-react';
 
 export default function AdminLayout({ children, title, hasLiveBooth = true }) {
@@ -24,139 +25,139 @@ export default function AdminLayout({ children, title, hasLiveBooth = true }) {
 
     const currentUrl = window.location.pathname;
 
-    // Sidebar items according to Whimsical Diagram Architecture
     const navItems = [
-        { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, accent: 'blue' },
-        { name: 'Proyek', href: '/admin/projects', icon: FolderKanban, accent: 'red' },
-        { name: 'Perangkat', href: '/admin/devices', icon: Monitor, accent: 'green', showLiveBadge: hasLiveBooth },
-        { name: 'Galery', href: '/admin/gallery', icon: ImageIcon, accent: 'blue' },
-        { name: 'Transaksi', href: '/admin/transactions', icon: Receipt, accent: 'green' },
-        { name: 'Profile', href: '/profile', icon: User, accent: 'blue' },
-        { name: 'Langganan', href: '/admin/subscription', icon: Crown, accent: 'red' },
-        { name: 'Dompet', href: '/admin/wallet', icon: Wallet, accent: 'green' },
+        { name: 'Dashboard',   href: '/dashboard',            icon: LayoutDashboard, group: 'main' },
+        { name: 'Proyek',      href: '/admin/projects',       icon: FolderKanban,    group: 'main' },
+        { name: 'Perangkat',   href: '/admin/devices',        icon: Monitor,         group: 'main', showLiveBadge: hasLiveBooth },
+        { name: 'Galery',      href: '/admin/gallery',        icon: ImageIcon,       group: 'main' },
+        { name: 'Transaksi',   href: '/admin/transactions',   icon: Receipt,         group: 'main' },
+        { name: 'Profile',     href: '/profile',              icon: User,            group: 'account' },
+        { name: 'Langganan',   href: '/admin/subscription',   icon: Crown,           group: 'account' },
+        { name: 'Dompet',      href: '/admin/wallet',         icon: Wallet,          group: 'account' },
     ];
 
-    return (
-        <div className="min-h-screen bg-brand-dark text-slate-100 flex flex-col font-sans relative overflow-x-hidden">
-            {/* Ambient RGB Lighting Orbs */}
-            <div className="fixed top-0 left-1/4 w-96 h-96 bg-brand-red/10 rounded-full blur-[140px] pointer-events-none"></div>
-            <div className="fixed bottom-0 right-1/4 w-[30rem] h-[30rem] bg-brand-blue/10 rounded-full blur-[150px] pointer-events-none"></div>
-            <div className="fixed top-1/2 left-0 w-80 h-80 bg-brand-green/10 rounded-full blur-[140px] pointer-events-none"></div>
+    const mainNav    = navItems.filter(i => i.group === 'main');
+    const accountNav = navItems.filter(i => i.group === 'account');
 
-            <div className="flex flex-1 z-10">
-                {/* Mobile Sidebar Overlay */}
-                {sidebarOpen && (
-                    <div 
-                        className="fixed inset-0 bg-black/70 backdrop-blur-sm z-40 lg:hidden"
-                        onClick={() => setSidebarOpen(false)}
-                    ></div>
+    const NavItem = ({ item }) => {
+        const Icon = item.icon;
+        const isActive = currentUrl === item.href || (item.href !== '/dashboard' && currentUrl.startsWith(item.href));
+
+        return (
+            <Link
+                href={item.href}
+                onClick={() => setSidebarOpen(false)}
+                className={`
+                    flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium transition-all duration-150 group
+                    ${isActive
+                        ? 'bg-indigo-50 text-indigo-700 font-semibold'
+                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'}
+                `}
+            >
+                <div className="flex items-center gap-2.5">
+                    <Icon className={`w-4 h-4 shrink-0 transition-colors ${isActive ? 'text-indigo-600' : 'text-slate-400 group-hover:text-slate-600'}`} />
+                    <span>{item.name}</span>
+                </div>
+
+                {item.showLiveBadge && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                        <span className="w-1 h-1 rounded-full bg-emerald-500 animate-pulse" />
+                        LIVE
+                    </span>
                 )}
+            </Link>
+        );
+    };
 
-                {/* Sidebar Navigation */}
-                <aside className={`
-                    fixed lg:static inset-y-0 left-0 z-50 w-72 bg-brand-surface/95 border-r border-slate-800/80 
-                    transform ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 
-                    transition-transform duration-300 ease-in-out flex flex-col justify-between backdrop-blur-xl
-                `}>
-                    <div>
-                        {/* Sidebar Brand Header */}
-                        <div className="p-6 border-b border-slate-800/80 flex items-center justify-between">
-                            <Link href="/dashboard" className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-red via-brand-blue to-brand-green p-[2px] shadow-md">
-                                    <div className="w-full h-full bg-brand-dark rounded-[10px] flex items-center justify-center">
-                                        <Camera className="w-5 h-5 text-brand-blue animate-pulse-slow" />
-                                    </div>
-                                </div>
-                                <div>
-                                    <h1 className="font-extrabold text-lg text-white tracking-tight leading-none">
-                                        PHOTOBOOTH<span className="text-brand-red">.</span>
-                                    </h1>
-                                    <span className="text-[10px] text-slate-400 font-semibold tracking-wider uppercase">
-                                        Studio Platform
-                                    </span>
-                                </div>
-                            </Link>
+    return (
+        <div className="min-h-screen bg-slate-50 text-slate-900 flex font-sans relative">
 
-                            <button 
-                                onClick={() => setSidebarOpen(false)}
-                                className="lg:hidden p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800"
-                            >
-                                <X className="w-5 h-5" />
-                            </button>
-                        </div>
+            {/* Mobile overlay */}
+            {sidebarOpen && (
+                <div
+                    className="fixed inset-0 bg-slate-900/30 backdrop-blur-sm z-40 lg:hidden"
+                    onClick={() => setSidebarOpen(false)}
+                />
+            )}
 
-                        {/* Active Live Kiosk Quick Card (Conditioned on live booth) */}
-                        {hasLiveBooth && (
-                            <div className="p-3.5 mx-3.5 my-3 rounded-xl glass-panel border border-brand-red/30 bg-gradient-to-r from-brand-red/10 via-transparent to-brand-blue/10">
-                                <div className="flex items-center justify-between mb-2">
-                                    <div className="flex items-center gap-2">
-                                        <Radio className="w-3.5 h-3.5 text-brand-red animate-pulse" />
-                                        <span className="text-xs font-bold text-slate-200">Booth Retail #01</span>
-                                    </div>
-                                    <span className="px-2 py-0.5 rounded-full text-[9px] font-extrabold bg-brand-red/20 text-brand-red border border-brand-red/40 animate-pulse">
-                                        LIVE
-                                    </span>
-                                </div>
-                                <Link 
-                                    href="/admin/kiosk"
-                                    className="flex items-center justify-between w-full py-1.5 px-3 rounded-lg bg-brand-red text-white text-xs font-bold shadow-lg shadow-brand-red/20 hover:bg-brand-red-hover transition-colors"
-                                >
-                                    <span>Buka Live Kiosk</span>
-                                    <ChevronRight className="w-4 h-4" />
-                                </Link>
+            {/* ── Sidebar ─────────────────────────────────────────────────── */}
+            <aside className={`
+                fixed lg:static inset-y-0 left-0 z-50 w-64 bg-white border-r border-slate-200/80
+                transform ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0
+                transition-transform duration-300 ease-in-out flex flex-col justify-between
+            `}>
+                <div className="flex flex-col h-full overflow-y-auto">
+                    {/* Brand Header */}
+                    <div className="flex items-center justify-between px-5 py-5 border-b border-slate-100">
+                        <Link href="/dashboard" className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center shadow-sm">
+                                <Camera className="w-4 h-4 text-white" />
                             </div>
-                        )}
-
-                        {/* Navigation Menu */}
-                        <nav className="px-3 py-2 space-y-1">
-                            {navItems.map((item) => {
-                                const Icon = item.icon;
-                                const isActive = currentUrl === item.href || (item.href !== '/dashboard' && currentUrl.startsWith(item.href));
-                                
-                                return (
-                                    <Link
-                                        key={item.name}
-                                        href={item.href}
-                                        className={`
-                                            flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group
-                                            ${isActive 
-                                                ? 'bg-brand-card text-white shadow-md border border-slate-700/60 font-bold' 
-                                                : 'text-slate-400 hover:text-slate-100 hover:bg-slate-800/50'}
-                                        `}
-                                    >
-                                        <div className="flex items-center gap-3">
-                                            <Icon className={`
-                                                w-4 h-4 transition-colors
-                                                ${isActive 
-                                                    ? item.accent === 'red' ? 'text-brand-red' : item.accent === 'green' ? 'text-brand-green' : 'text-brand-blue'
-                                                    : 'text-slate-400 group-hover:text-slate-200'}
-                                            `} />
-                                            <span>{item.name}</span>
-                                        </div>
-
-                                        {/* Show LIVE badge ONLY if showLiveBadge is true */}
-                                        {item.showLiveBadge && (
-                                            <span className="px-2 py-0.5 rounded-md text-[9px] font-extrabold bg-brand-red text-white shadow-sm shadow-brand-red/40 animate-pulse">
-                                                LIVE
-                                            </span>
-                                        )}
-                                    </Link>
-                                );
-                            })}
-                        </nav>
+                            <div>
+                                <h1 className="text-sm font-bold text-slate-900 leading-none">
+                                    Photobooth<span className="text-indigo-600">.</span>
+                                </h1>
+                                <span className="text-[10px] text-slate-400 font-medium tracking-wide">Studio Platform</span>
+                            </div>
+                        </Link>
+                        <button
+                            onClick={() => setSidebarOpen(false)}
+                            className="lg:hidden p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+                        >
+                            <X className="w-4 h-4" />
+                        </button>
                     </div>
 
-                    {/* Sidebar Footer User Info */}
-                    <div className="p-4 border-t border-slate-800/80">
-                        <div className="flex items-center justify-between p-2.5 rounded-xl bg-brand-card/60 border border-slate-800">
-                            <div className="flex items-center gap-3 overflow-hidden">
-                                <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-brand-blue to-brand-green p-[2px] shrink-0">
-                                    <div className="w-full h-full bg-brand-surface rounded-[6px] flex items-center justify-center font-bold text-white text-xs">
-                                        {auth?.user?.name ? auth.user.name.charAt(0).toUpperCase() : 'A'}
-                                    </div>
+                    {/* Live Booth Card */}
+                    {hasLiveBooth && (
+                        <div className="mx-3 mt-3 p-3 rounded-xl bg-emerald-50 border border-emerald-200">
+                            <div className="flex items-center justify-between mb-2">
+                                <div className="flex items-center gap-2">
+                                    <Radio className="w-3.5 h-3.5 text-emerald-600 animate-pulse" />
+                                    <span className="text-xs font-semibold text-emerald-800">Booth Retail #01</span>
+                                </div>
+                                <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-emerald-600 text-white">
+                                    LIVE
+                                </span>
+                            </div>
+                            <Link
+                                href="/admin/kiosk"
+                                className="flex items-center justify-between w-full py-1.5 px-3 rounded-lg bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700 transition-colors"
+                            >
+                                <span>Buka Live Kiosk</span>
+                                <ChevronRight className="w-3.5 h-3.5" />
+                            </Link>
+                        </div>
+                    )}
+
+                    {/* Navigation */}
+                    <nav className="flex-1 px-3 py-4 space-y-4">
+                        {/* Main Menu */}
+                        <div>
+                            <p className="px-3 mb-1.5 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Menu Utama</p>
+                            <div className="space-y-0.5">
+                                {mainNav.map(item => <NavItem key={item.name} item={item} />)}
+                            </div>
+                        </div>
+
+                        {/* Account Menu */}
+                        <div>
+                            <p className="px-3 mb-1.5 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Akun</p>
+                            <div className="space-y-0.5">
+                                {accountNav.map(item => <NavItem key={item.name} item={item} />)}
+                            </div>
+                        </div>
+                    </nav>
+
+                    {/* User Footer */}
+                    <div className="p-3 border-t border-slate-100">
+                        <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 border border-slate-200">
+                            <div className="flex items-center gap-2.5 overflow-hidden">
+                                <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center font-bold text-indigo-700 text-xs shrink-0">
+                                    {auth?.user?.name ? auth.user.name.charAt(0).toUpperCase() : 'A'}
                                 </div>
                                 <div className="truncate">
-                                    <p className="text-xs font-bold text-white truncate">
+                                    <p className="text-xs font-semibold text-slate-800 truncate">
                                         {auth?.user?.name || 'Admin Studio'}
                                     </p>
                                     <p className="text-[10px] text-slate-400 truncate">
@@ -164,58 +165,57 @@ export default function AdminLayout({ children, title, hasLiveBooth = true }) {
                                     </p>
                                 </div>
                             </div>
-
-                            <Link 
-                                href={route('logout')} 
-                                method="post" 
+                            <Link
+                                href={route('logout')}
+                                method="post"
                                 as="button"
-                                className="p-2 rounded-lg text-slate-400 hover:text-brand-red hover:bg-brand-red/10 transition-colors shrink-0"
+                                className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors shrink-0"
                                 title="Sign Out"
                             >
                                 <LogOut className="w-4 h-4" />
                             </Link>
                         </div>
                     </div>
-                </aside>
-
-                {/* Main Content Area */}
-                <div className="flex-1 flex flex-col min-w-0">
-                    {/* Topbar Navbar */}
-                    <header className="sticky top-0 z-30 px-6 py-4 border-b border-slate-800/80 bg-brand-dark/80 backdrop-blur-xl flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                            <button
-                                onClick={() => setSidebarOpen(true)}
-                                className="lg:hidden p-2 rounded-xl text-slate-300 hover:bg-slate-800"
-                            >
-                                <Menu className="w-6 h-6" />
-                            </button>
-                            
-                            <div>
-                                <h2 className="text-xl font-bold text-white tracking-tight">
-                                    {title || 'Dashboard'}
-                                </h2>
-                            </div>
-                        </div>
-
-                        {/* Topbar Right Actions */}
-                        <div className="flex items-center gap-3">
-                            {hasLiveBooth && (
-                                <Link
-                                    href="/admin/kiosk"
-                                    className="hidden sm:flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-brand-red text-white text-xs font-bold shadow-lg shadow-brand-red/20 hover:bg-brand-red-hover transition-colors"
-                                >
-                                    <Play className="w-3.5 h-3.5 fill-white" />
-                                    <span>Kiosk Live</span>
-                                </Link>
-                            )}
-                        </div>
-                    </header>
-
-                    {/* Page Body */}
-                    <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">
-                        {children}
-                    </main>
                 </div>
+            </aside>
+
+            {/* ── Main Content ─────────────────────────────────────────────── */}
+            <div className="flex-1 flex flex-col min-w-0 min-h-screen">
+
+                {/* Topbar */}
+                <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-slate-200/80 px-5 py-3.5 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <button
+                            onClick={() => setSidebarOpen(true)}
+                            className="lg:hidden p-2 rounded-lg text-slate-500 hover:bg-slate-100 transition-colors"
+                        >
+                            <Menu className="w-5 h-5" />
+                        </button>
+
+                        <div>
+                            <h2 className="text-base font-bold text-slate-900 leading-none">
+                                {title || 'Dashboard'}
+                            </h2>
+                        </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                        {hasLiveBooth && (
+                            <Link
+                                href="/admin/kiosk"
+                                className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700 transition-colors shadow-sm"
+                            >
+                                <Play className="w-3.5 h-3.5 fill-white" />
+                                Kiosk Live
+                            </Link>
+                        )}
+                    </div>
+                </header>
+
+                {/* Page Body */}
+                <main className="flex-1 p-5 sm:p-7 lg:p-8 max-w-7xl w-full mx-auto">
+                    {children}
+                </main>
             </div>
         </div>
     );

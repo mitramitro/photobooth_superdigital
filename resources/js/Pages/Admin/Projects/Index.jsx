@@ -1,43 +1,55 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Head, Link } from '@inertiajs/react';
 import AdminLayout from '@/Layouts/AdminLayout';
 import {
     FolderKanban,
     Plus,
-    Sliders,
-    Timer,
     LayoutGrid,
+    List,
+    Timer,
+    LayoutPanelTop,
     Layers,
     Sun,
-    Play,
-    Pencil,
-    X,
-    Upload,
     Monitor,
     Radio,
-    ChevronRight,
-    Sparkles,
-    CheckCircle2,
-    Clock,
-    Maximize2,
+    Pencil,
+    Trash2,
+    Play,
+    LayoutTemplate,
+    Shapes,
 } from 'lucide-react';
+import {
+    PageHeader,
+    Button,
+    SearchInput,
+    FilterBar,
+    FilterPill,
+    Table,
+    Pagination,
+    EmptyState,
+    Card,
+    CardHeader,
+    CardBody,
+    StatusBadge,
+    Drawer,
+    Field,
+    Input,
+    Select,
+    Checkbox,
+    ConfirmDialog,
+    useToast,
+    PhotoThumbnail,
+} from '@/Components/ui';
 
-// ─── Data & Constants ────────────────────────────────────────────────────────
-
-const TEMPLATE_OPTIONS = [
-    { id: 'photobox retail',   label: 'Photobox Retail',   desc: 'Sistem Toko / Stand' },
-    { id: 'Photobox - Event',  label: 'Photobox Event',    desc: 'Pernikahan / Pesta' },
-    { id: 'photobox self',     label: 'Photobox Self',     desc: 'Self Service Corner' },
-];
-
-const TIMER_OPTIONS = [3, 5, 10, 15];
+const TEMPLATE_OPTIONS = ['Photobox Retail', 'Photobox Event', 'Photobox Self'];
 const LAYOUT_OPTIONS = ['4-Grid Strip', 'Classic 3-Strip', 'Single Portrait'];
+const TIMER_OPTIONS = [3, 5, 10, 15];
 
-const SAMPLE_PROJECTS = [
+const initialProjects = [
     {
         id: 'PRJ-001',
         name: 'Photobox Retail Grand Mall',
-        template: 'photobox retail',
+        template: 'Photobox Retail',
         orientation: 'Portrait',
         timer: 5,
         layout: '4-Grid Strip',
@@ -45,14 +57,13 @@ const SAMPLE_PROJECTS = [
         filter: 'Cyber Neon',
         lighting: 'High Brightness',
         thumbnail: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?q=80&w=800&auto=format&fit=crop',
-        welcomeMessage: 'Selamat Datang di Photobox Retail!',
         assignedDevice: 'Booth #01 Main Hall',
-        isLive: true,
+        status: 'active',
     },
     {
         id: 'PRJ-002',
         name: 'Wedding Party Classic Event',
-        template: 'Photobox - Event',
+        template: 'Photobox Event',
         orientation: 'Landscape',
         timer: 3,
         layout: 'Classic 3-Strip',
@@ -60,14 +71,13 @@ const SAMPLE_PROJECTS = [
         filter: 'Sepia Warm',
         lighting: 'Soft Studio Glow',
         thumbnail: 'https://images.unsplash.com/photo-1519741497674-611481863552?q=80&w=800&auto=format&fit=crop',
-        welcomeMessage: 'Welcome to Sarah & Alex Wedding!',
         assignedDevice: 'Booth #02 VIP Stage',
-        isLive: false,
+        status: 'active',
     },
     {
         id: 'PRJ-003',
         name: 'Self Studio Cafe Corner',
-        template: 'photobox self',
+        template: 'Photobox Self',
         orientation: 'Portrait',
         timer: 10,
         layout: 'Single Portrait',
@@ -75,550 +85,508 @@ const SAMPLE_PROJECTS = [
         filter: 'Noir B&W',
         lighting: 'Natural Ambient',
         thumbnail: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=800&auto=format&fit=crop',
-        welcomeMessage: 'Tap Screen to Start Self Studio Session',
-        assignedDevice: 'Belum terhubung',
-        isLive: false,
+        assignedDevice: '',
+        status: 'draft',
     },
 ];
 
-// ─── Sub-components ──────────────────────────────────────────────────────────
+const statusTone = { active: 'success', draft: 'neutral', archived: 'neutral' };
+const statusLabel = { active: 'Aktif', draft: 'Draf', archived: 'Arsip' };
 
-function MetaBadge({ icon: Icon, label, color = 'slate' }) {
+const emptyForm = () => ({
+    name: '',
+    description: '',
+    template: 'Photobox Retail',
+    orientation: 'Portrait',
+    timer: 5,
+    layout: '4-Grid Strip',
+    frame: 'Standard Frame',
+    filter: 'Original',
+    lighting: 'Standard',
+    assignedDevice: '',
+    status: 'draft',
+    thumbnail: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?q=80&w=800&auto=format&fit=crop',
+});
+
+export default function Index() {
+    const { toast } = useToast();
+    const [projects, setProjects] = useState(initialProjects);
+    const [view, setView] = useState('grid');
+    const [search, setSearch] = useState('');
+    const [statusFilter, setStatusFilter] = useState('all');
+    const [sort, setSort] = useState(null);
+    const [page, setPage] = useState(1);
+    const [perPage, setPerPage] = useState(8);
+
+    const [drawerOpen, setDrawerOpen] = useState(false);
+    const [editing, setEditing] = useState(null);
+    const [form, setForm] = useState(emptyForm());
+    const [errors, setErrors] = useState({});
+    const [confirm, setConfirm] = useState(null);
+
+    const filtered = useMemo(() => {
+        let rows = [...projects];
+        if (statusFilter !== 'all') rows = rows.filter((r) => r.status === statusFilter);
+        if (search.trim()) {
+            const q = search.toLowerCase();
+            rows = rows.filter(
+                (r) =>
+                    r.name.toLowerCase().includes(q) ||
+                    r.template.toLowerCase().includes(q) ||
+                    r.id.toLowerCase().includes(q),
+            );
+        }
+        if (sort) {
+            rows.sort((a, b) => {
+                const av = a[sort.key];
+                const bv = b[sort.key];
+                const cmp = String(av ?? '').localeCompare(String(bv ?? ''));
+                return sort.dir === 'asc' ? cmp : -cmp;
+            });
+        }
+        return rows;
+    }, [projects, search, statusFilter, sort]);
+
+    const pageRows = filtered.slice((page - 1) * perPage, page * perPage);
+    const activeCount = projects.filter((p) => p.status === 'active').length;
+
+    const openCreate = () => {
+        setEditing(null);
+        setForm(emptyForm());
+        setErrors({});
+        setDrawerOpen(true);
+    };
+
+    const openEdit = (project) => {
+        setEditing(project);
+        setForm({ ...emptyForm(), ...project });
+        setErrors({});
+        setDrawerOpen(true);
+    };
+
+    const validate = () => {
+        const e = {};
+        if (!form.name.trim()) e.name = 'Nama proyek wajib diisi.';
+        if (!form.description?.trim()) e.description = 'Deskripsi singkat wajib diisi.';
+        setErrors(e);
+        return Object.keys(e).length === 0;
+    };
+
+    const handleSave = () => {
+        if (!validate()) {
+            toast({ tone: 'error', title: 'Periksa kembali', message: 'Ada beberapa field yang perlu dilengkapi.' });
+            return;
+        }
+        if (editing) {
+            setProjects((prev) => prev.map((p) => (p.id === editing.id ? { ...p, ...form } : p)));
+            toast({ tone: 'success', title: 'Proyek diperbarui', message: `${form.name} berhasil disimpan.` });
+        } else {
+            const created = { ...form, id: `PRJ-${String(projects.length + 1).padStart(3, '0')}` };
+            setProjects((prev) => [created, ...prev]);
+            toast({ tone: 'success', title: 'Proyek dibuat', message: `${form.name} berhasil dibuat.` });
+        }
+        setDrawerOpen(false);
+    };
+
+    const handleDelete = () => {
+        setProjects((prev) => prev.filter((p) => p.id !== confirm.id));
+        toast({ tone: 'warning', title: 'Proyek dihapus', message: `${confirm.name} telah dihapus.` });
+        setConfirm(null);
+    };
+
+    const set = (k) => (e) =>
+        setForm((f) => ({ ...f, [k]: e?.target?.value ?? e }));
+
+    const running = (p) => p.status === 'active' && p.assignedDevice;
+
+    const columns = [
+        {
+            key: 'name',
+            label: 'Proyek',
+            sortable: true,
+            render: (r) => (
+                <div className="flex items-center gap-3">
+                    <PhotoThumbnail src={r.thumbnail} alt={r.name} aspect="square" className="h-10 w-10 shrink-0 rounded-input" />
+                    <div className="min-w-0">
+                        <p className="truncate font-medium text-ink">{r.name}</p>
+                        <p className="truncate text-xs text-ink-muted">{r.id}</p>
+                    </div>
+                </div>
+            ),
+        },
+        { key: 'template', label: 'Template', sortable: true, render: (r) => <span className="text-sm">{r.template}</span> },
+        { key: 'layout', label: 'Layout', render: (r) => <span className="text-sm">{r.layout}</span> },
+        { key: 'timer', label: 'Timer', align: 'right', render: (r) => <span className="text-sm">{r.timer}s</span> },
+        {
+            key: 'assignedDevice',
+            label: 'Perangkat',
+            render: (r) =>
+                r.assignedDevice ? (
+                    <span className="inline-flex items-center gap-1.5 text-sm text-ink">
+                        <Monitor className="h-3.5 w-3.5 text-ink-faint" />
+                        {r.assignedDevice}
+                    </span>
+                ) : (
+                    <span className="text-sm text-warning">Belum terhubung</span>
+                ),
+        },
+        {
+            key: 'status',
+            label: 'Status',
+            sortable: true,
+            render: (r) => (
+                <StatusBadge tone={statusTone[r.status]} dot pulse={running(r)}>
+                    {running(r) ? 'LIVE' : statusLabel[r.status]}
+                </StatusBadge>
+            ),
+        },
+        {
+            key: 'actions',
+            label: '',
+            align: 'right',
+            render: (r) => (
+                <div className="flex items-center justify-end gap-1">
+                    {running(r) && (
+                        <Link
+                            href="/admin/kiosk"
+                            className="inline-flex h-7 w-7 items-center justify-center rounded-input text-brand hover:bg-brand-subtle"
+                            title="Buka di kiosk"
+                        >
+                            <Play className="h-3.5 w-3.5 fill-current" />
+                        </Link>
+                    )}
+                    <button
+                        onClick={() => openEdit(r)}
+                        className="inline-flex h-7 w-7 items-center justify-center rounded-input text-ink-muted hover:bg-slate-100 hover:text-ink"
+                        title="Ubah"
+                    >
+                        <Pencil className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                        onClick={() => setConfirm(r)}
+                        className="inline-flex h-7 w-7 items-center justify-center rounded-input text-ink-muted hover:bg-danger-subtle hover:text-danger"
+                        title="Hapus"
+                    >
+                        <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                </div>
+            ),
+        },
+    ];
+
     return (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-100 text-slate-600 text-xs font-medium border border-slate-200/80">
-            <Icon className={`w-3 h-3 shrink-0 text-${color}-500`} />
-            <span className="truncate max-w-[100px]">{label}</span>
-        </span>
+        <AdminLayout title="Proyek">
+            <Head title="Manajemen Proyek - Photobooth Studio" />
+
+            <PageHeader
+                title="Proyek"
+                description="Kelola dan konfigurasi proyek photobooth Anda."
+                icon={FolderKanban}
+                actions={
+                    <>
+                        <span className="hidden items-center gap-2 text-sm text-ink-muted sm:inline-flex">
+                            {projects.length} proyek · {activeCount} aktif
+                        </span>
+                        <Button icon={Plus} onClick={openCreate}>
+                            Tambah Proyek
+                        </Button>
+                    </>
+                }
+            />
+
+            {/* Toolbar */}
+            <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                <FilterBar>
+                    <SearchInput
+                        placeholder="Cari proyek…"
+                        value={search}
+                        onChange={(e) => {
+                            setSearch(e.target.value);
+                            setPage(1);
+                        }}
+                        className="w-full lg:w-72"
+                    />
+                    <FilterPill
+                        value={statusFilter}
+                        onChange={(v) => {
+                            setStatusFilter(v);
+                            setPage(1);
+                        }}
+                        options={[
+                            { value: 'all', label: 'Semua' },
+                            { value: 'active', label: 'Aktif' },
+                            { value: 'draft', label: 'Draf' },
+                        ]}
+                    />
+                </FilterBar>
+
+                <div className="flex items-center gap-1 rounded-input border border-edge bg-white p-0.5">
+                    <button
+                        onClick={() => setView('grid')}
+                        className={`inline-flex h-7 w-7 items-center justify-center rounded-input ${view === 'grid' ? 'bg-slate-100 text-ink' : 'text-ink-muted hover:text-ink'}`}
+                        title="Tampilan grid"
+                    >
+                        <LayoutGrid className="h-4 w-4" />
+                    </button>
+                    <button
+                        onClick={() => setView('table')}
+                        className={`inline-flex h-7 w-7 items-center justify-center rounded-input ${view === 'table' ? 'bg-slate-100 text-ink' : 'text-ink-muted hover:text-ink'}`}
+                        title="Tampilan tabel"
+                    >
+                        <List className="h-4 w-4" />
+                    </button>
+                </div>
+            </div>
+
+            {/* Content */}
+            {filtered.length === 0 ? (
+                <Card>
+                    <EmptyState
+                        icon={FolderKanban}
+                        title="Belum ada proyek"
+                        description="Buat proyek photobooth pertama Anda untuk mulai mengonfigurasi template, frame, dan perangkat."
+                        action={
+                            <Button icon={Plus} onClick={openCreate}>
+                                Tambah Proyek
+                            </Button>
+                        }
+                    />
+                </Card>
+            ) : view === 'table' ? (
+                <Card className="overflow-hidden">
+                    <Table
+                        columns={columns}
+                        rows={pageRows}
+                        rowKey="id"
+                        sort={sort}
+                        onSort={setSort}
+                    />
+                    <Pagination
+                        page={page}
+                        total={filtered.length}
+                        perPage={perPage}
+                        onPageChange={setPage}
+                        onPerPageChange={setPerPage}
+                    />
+                </Card>
+            ) : (
+                <>
+                    <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                        {pageRows.map((project) => (
+                            <ProjectCard
+                                key={project.id}
+                                project={project}
+                                running={running(project)}
+                                onEdit={() => openEdit(project)}
+                                onDelete={() => setConfirm(project)}
+                            />
+                        ))}
+                    </div>
+                    <div className="mt-4">
+                        <Pagination
+                            page={page}
+                            total={filtered.length}
+                            perPage={perPage}
+                            onPageChange={setPage}
+                            onPerPageChange={setPerPage}
+                        />
+                    </div>
+                </>
+            )}
+
+            {/* Create / Edit Drawer */}
+            <Drawer
+                open={drawerOpen}
+                onClose={() => setDrawerOpen(false)}
+                title={editing ? 'Ubah Proyek' : 'Tambah Proyek Baru'}
+                description={
+                    editing
+                        ? 'Perbarui konfigurasi proyek yang sudah ada.'
+                        : 'Konfigurasikan proyek photobooth baru.'
+                }
+                icon={FolderKanban}
+                size="xl"
+                footer={
+                    <>
+                        <Button variant="secondary" onClick={() => setDrawerOpen(false)}>
+                            Batal
+                        </Button>
+                        <Button onClick={handleSave}>{editing ? 'Simpan Perubahan' : 'Buat Proyek'}</Button>
+                    </>
+                }
+            >
+                <div className="space-y-6">
+                    <section className="space-y-5">
+                        <div>
+                            <h4 className="text-sm font-semibold text-ink">Informasi Dasar</h4>
+                            <p className="text-xs text-ink-muted">Informasi umum mengenai proyek.</p>
+                        </div>
+                        <Field label="Nama proyek" required error={errors.name}>
+                            <Input
+                                value={form.name}
+                                error={!!errors.name}
+                                onChange={set('name')}
+                                placeholder="Contoh: Grand Opening Retail Mall"
+                            />
+                        </Field>
+                        <Field label="Deskripsi" required error={errors.description}>
+                            <Input
+                                type="textarea"
+                                rows={3}
+                                value={form.description}
+                                error={!!errors.description}
+                                onChange={set('description')}
+                                placeholder="Deskripsi singkat proyek"
+                            />
+                        </Field>
+                        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+                            <Field label="Template" hint="Tentukan jenis template proyek.">
+                                <Select value={form.template} onChange={set('template')}>
+                                    {TEMPLATE_OPTIONS.map((t) => (
+                                        <option key={t}>{t}</option>
+                                    ))}
+                                </Select>
+                            </Field>
+                            <Field label="Orientasi">
+                                <Select value={form.orientation} onChange={set('orientation')}>
+                                    <option value="Portrait">Portrait (9:16)</option>
+                                    <option value="Landscape">Landscape (16:9)</option>
+                                </Select>
+                            </Field>
+                        </div>
+                        <Field label="Status">
+                            <Select value={form.status} onChange={set('status')}>
+                                <option value="draft">Draf</option>
+                                <option value="active">Aktif</option>
+                            </Select>
+                        </Field>
+                    </section>
+
+                    <div className="border-t border-edge" />
+
+                    <section className="space-y-5">
+                        <div>
+                            <h4 className="text-sm font-semibold text-ink">Konfigurasi Photobooth</h4>
+                            <p className="text-xs text-ink-muted">Atur perilaku sesi foto dan tampilan cetak.</p>
+                        </div>
+                        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+                            <Field label="Timer hitung mundur">
+                                <Select value={String(form.timer)} onChange={(e) => setForm((f) => ({ ...f, timer: Number(e.target.value) }))}>
+                                    {TIMER_OPTIONS.map((t) => (
+                                        <option key={t} value={t}>
+                                            {t} detik
+                                        </option>
+                                    ))}
+                                </Select>
+                            </Field>
+                            <Field label="Layout foto">
+                                <Select value={form.layout} onChange={set('layout')}>
+                                    {LAYOUT_OPTIONS.map((l) => (
+                                        <option key={l}>{l}</option>
+                                    ))}
+                                </Select>
+                            </Field>
+                            <Field label="Frame">
+                                <Input value={form.frame} onChange={set('frame')} />
+                            </Field>
+                            <Field label="Filter">
+                                <Input value={form.filter} onChange={set('filter')} />
+                            </Field>
+                            <Field label="Pencahayaan">
+                                <Input value={form.lighting} onChange={set('lighting')} />
+                            </Field>
+                        </div>
+                        <Field label="Perangkat tertaut" hint="Kosongkan jika belum menautkan perangkat.">
+                            <Select value={form.assignedDevice || ''} onChange={(e) => setForm((f) => ({ ...f, assignedDevice: e.target.value }))}>
+                                <option value="">Belum terhubung</option>
+                                <option value="Booth #01 Main Hall">Booth #01 Main Hall</option>
+                                <option value="Booth #02 VIP Stage">Booth #02 VIP Stage</option>
+                                <option value="Booth #03 Lounge Bar">Booth #03 Lounge Bar</option>
+                            </Select>
+                        </Field>
+                    </section>
+                </div>
+            </Drawer>
+
+            {/* Delete confirmation */}
+            <ConfirmDialog
+                open={!!confirm}
+                onClose={() => setConfirm(null)}
+                onConfirm={handleDelete}
+                title="Hapus proyek?"
+                message={`Proyek "${confirm?.name}" akan dihapus permanen. Tindakan ini tidak dapat dibatalkan.`}
+                confirmLabel="Hapus Proyek"
+            />
+        </AdminLayout>
     );
 }
 
-function ProjectCard({ project, onOpenControls, onOpenSettings }) {
+function ProjectCard({ project, running, onEdit, onDelete }) {
     return (
-        <article className="bg-white border border-slate-200/80 rounded-2xl shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden flex flex-col group">
-            {/* Thumbnail */}
-            <div className="relative h-44 w-full overflow-hidden bg-slate-100">
-                <img
-                    src={project.thumbnail}
-                    alt={project.name}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                />
-                {/* Gradient overlay */}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
-
-                {/* Top badges */}
-                <div className="absolute top-3 left-3">
-                    <span className="px-2.5 py-1 rounded-full text-[10px] font-semibold bg-white/90 text-slate-700 border border-slate-200/80 backdrop-blur-sm shadow-sm capitalize">
+        <Card className="flex flex-col overflow-hidden transition-shadow hover:shadow-cardHover">
+            <div className="relative">
+                <PhotoThumbnail src={project.thumbnail} alt={project.name} aspect="video" />
+                <div className="absolute left-2 top-2">
+                    <span className="rounded-input bg-white/90 px-2 py-0.5 text-[10px] font-semibold text-ink shadow-sm">
                         {project.template}
                     </span>
                 </div>
-
-                {project.isLive && (
-                    <div className="absolute top-3 right-3">
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-sm">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                            Live at Booth
-                        </span>
-                    </div>
-                )}
-
-                {/* Project name overlay */}
-                <div className="absolute bottom-3 left-3 right-3">
-                    <h3 className="font-bold text-white text-sm leading-snug drop-shadow-md line-clamp-2">
-                        {project.name}
-                    </h3>
+                <div className="absolute right-2 top-2">
+                    {running ? (
+                        <StatusBadge tone="success" dot pulse>
+                            LIVE
+                        </StatusBadge>
+                    ) : (
+                        <StatusBadge tone={statusTone[project.status]}>
+                            {statusLabel[project.status]}
+                        </StatusBadge>
+                    )}
                 </div>
             </div>
 
-            {/* Body */}
-            <div className="p-4 flex-1 flex flex-col gap-3">
-                {/* Device info */}
-                <div className="flex items-center gap-2 text-xs text-slate-500">
-                    <Monitor className="w-3.5 h-3.5 shrink-0 text-slate-400" />
-                    <span className="truncate font-medium">
-                        {project.assignedDevice === 'Belum terhubung'
-                            ? <span className="text-amber-600 font-semibold">Belum terhubung ke perangkat</span>
-                            : project.assignedDevice}
-                    </span>
+            <CardBody className="flex flex-1 flex-col gap-3">
+                <div>
+                    <p className="truncate font-semibold text-ink">{project.name}</p>
+                    <p className="text-xs text-ink-muted">{project.id}</p>
                 </div>
 
-                {/* Meta badges */}
                 <div className="flex flex-wrap gap-1.5">
-                    <MetaBadge icon={Timer}      label={`Timer ${project.timer}s`}   color="indigo" />
-                    <MetaBadge icon={LayoutGrid} label={project.layout}              color="blue"   />
-                    <MetaBadge icon={Layers}     label={project.frame}               color="violet" />
-                    <MetaBadge icon={Sun}        label={project.lighting}            color="amber"  />
+                    <Meta icon={Timer} label={`${project.timer}s`} />
+                    <Meta icon={LayoutPanelTop} label={project.layout} />
+                    <Meta icon={Layers} label={project.frame} />
+                    {project.assignedDevice && <Meta icon={Monitor} label={project.assignedDevice} />}
                 </div>
-            </div>
+            </CardBody>
 
-            {/* Action footer */}
-            <div className="px-4 pb-4 flex items-center gap-2">
-                <button
-                    onClick={() => onOpenControls(project)}
-                    className="flex-1 py-2 px-3 rounded-lg border border-slate-200 text-slate-700 text-xs font-semibold hover:bg-slate-50 hover:border-slate-300 transition-all flex items-center justify-center gap-1.5"
-                >
-                    <Sliders className="w-3.5 h-3.5 text-indigo-500" />
-                    Buka Controls
-                </button>
-                <button
-                    onClick={() => onOpenSettings(project)}
-                    className="flex-1 py-2 px-3 rounded-lg border border-slate-200 text-slate-700 text-xs font-semibold hover:bg-slate-50 hover:border-slate-300 transition-all flex items-center justify-center gap-1.5"
-                >
-                    <Pencil className="w-3.5 h-3.5 text-slate-500" />
-                    Ubah Details
-                </button>
-                <Link
-                    href="/admin/kiosk"
-                    className="p-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition-colors shadow-sm flex items-center justify-center"
-                    title="Jalankan di Live Kiosk"
-                >
-                    <Play className="w-3.5 h-3.5 fill-white" />
-                </Link>
-            </div>
-        </article>
-    );
-}
-
-// ─── Modals ──────────────────────────────────────────────────────────────────
-
-function ModalShell({ onClose, children, maxWidth = 'max-w-lg' }) {
-    return (
-        <div
-            className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-            onClick={(e) => e.target === e.currentTarget && onClose()}
-        >
-            <div className={`bg-white rounded-2xl border border-slate-200 shadow-xl w-full ${maxWidth} max-h-[90vh] overflow-y-auto relative`}>
-                {children}
-            </div>
-        </div>
-    );
-}
-
-function AddProjectModal({ onClose, onCreate }) {
-    const [form, setForm] = useState({
-        name: '',
-        template: 'photobox retail',
-        orientation: 'Portrait',
-        welcomeMessage: '',
-    });
-
-    const handleSubmit = (e) => {
-        e.preventDefault();
-        onCreate(form);
-    };
-
-    return (
-        <ModalShell onClose={onClose}>
-            {/* Modal Header */}
-            <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100">
-                <div>
-                    <h3 className="text-base font-bold text-slate-900">Tambah Proyek Baru</h3>
-                    <p className="text-xs text-slate-500 mt-0.5">Pilih template lalu konfigurasi proyek photobooth Anda.</p>
-                </div>
-                <button onClick={onClose} className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors">
-                    <X className="w-4 h-4" />
-                </button>
-            </div>
-
-            <form onSubmit={handleSubmit} className="px-6 py-5 space-y-5">
-                {/* Project Name */}
-                <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">Judul Proyek</label>
-                    <input
-                        type="text"
-                        required
-                        value={form.name}
-                        onChange={(e) => setForm({ ...form, name: e.target.value })}
-                        placeholder="Contoh: Grand Opening Retail Mall"
-                        className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 transition"
-                    />
-                </div>
-
-                {/* Template Picker */}
-                <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">Template Proyek</label>
-                    <div className="grid grid-cols-3 gap-2">
-                        {TEMPLATE_OPTIONS.map((tpl) => (
-                            <button
-                                key={tpl.id}
-                                type="button"
-                                onClick={() => setForm({ ...form, template: tpl.id })}
-                                className={`p-3 rounded-xl border text-left transition-all ${
-                                    form.template === tpl.id
-                                        ? 'bg-indigo-50 border-indigo-500 ring-1 ring-indigo-500/30'
-                                        : 'border-slate-200 hover:bg-slate-50'
-                                }`}
-                            >
-                                <span className="block text-xs font-semibold text-slate-800">{tpl.label}</span>
-                                <span className="block text-[10px] text-slate-500 mt-0.5">{tpl.desc}</span>
-                                {form.template === tpl.id && (
-                                    <CheckCircle2 className="w-3.5 h-3.5 text-indigo-600 mt-1.5" />
-                                )}
-                            </button>
-                        ))}
-                    </div>
-                </div>
-
-                {/* Orientation */}
-                <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">Orientasi Layar</label>
-                    <div className="flex gap-2">
-                        {['Portrait', 'Landscape'].map((orient) => (
-                            <button
-                                key={orient}
-                                type="button"
-                                onClick={() => setForm({ ...form, orientation: orient })}
-                                className={`flex-1 py-2.5 px-3 rounded-lg border text-xs font-semibold text-center flex items-center justify-center gap-1.5 transition-all ${
-                                    form.orientation === orient
-                                        ? 'bg-indigo-50 border-indigo-500 text-indigo-700'
-                                        : 'border-slate-200 text-slate-600 hover:bg-slate-50'
-                                }`}
-                            >
-                                <Maximize2 className="w-3.5 h-3.5" />
-                                {orient}
-                            </button>
-                        ))}
-                    </div>
-                </div>
-
-                {/* Welcome Message */}
-                <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">Pesan Selamat Datang</label>
-                    <input
-                        type="text"
-                        value={form.welcomeMessage}
-                        onChange={(e) => setForm({ ...form, welcomeMessage: e.target.value })}
-                        placeholder="Contoh: Sentuh Layar Untuk Memulai Foto"
-                        className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 transition"
-                    />
-                </div>
-
-                {/* Submit */}
-                <div className="flex gap-2 pt-1">
-                    <button
-                        type="button"
-                        onClick={onClose}
-                        className="flex-1 py-2.5 px-4 rounded-lg border border-slate-200 text-slate-700 text-sm font-semibold hover:bg-slate-50 transition-colors"
+            <div className="flex gap-2 border-t border-edge px-5 py-3">
+                {running && (
+                    <Link
+                        href="/admin/kiosk"
+                        className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-input bg-brand px-3 py-2 text-xs font-semibold text-white hover:bg-brand-dark"
                     >
-                        Batal
-                    </button>
-                    <button
-                        type="submit"
-                        className="flex-1 py-2.5 px-4 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold shadow-sm transition-colors flex items-center justify-center gap-1.5"
-                    >
-                        <Sparkles className="w-4 h-4" />
-                        Buat Proyek
-                    </button>
-                </div>
-            </form>
-        </ModalShell>
+                        <Play className="h-3.5 w-3.5 fill-current" /> Buka Kiosk
+                    </Link>
+                )}
+                <Button variant="secondary" size="sm" className="flex-1" icon={Pencil} onClick={onEdit}>
+                    Ubah
+                </Button>
+                <button
+                    onClick={onDelete}
+                    className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-input border border-edge text-ink-muted hover:bg-danger-subtle hover:text-danger"
+                    title="Hapus"
+                >
+                    <Trash2 className="h-3.5 w-3.5" />
+                </button>
+            </div>
+        </Card>
     );
 }
 
-function ProjectDetailModal({ project, defaultTab, onClose }) {
-    const [tab, setTab] = useState(defaultTab);
-    const [timer, setTimer] = useState(project.timer);
-    const [layout, setLayout] = useState(project.layout);
-
+function Meta({ icon: Icon, label }) {
     return (
-        <ModalShell onClose={onClose} maxWidth="max-w-2xl">
-            {/* Modal Header */}
-            <div className="flex items-start justify-between px-6 py-5 border-b border-slate-100">
-                <div>
-                    <span className="inline-block text-[10px] font-mono font-semibold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded mb-1">
-                        {project.id}
-                    </span>
-                    <h3 className="text-base font-bold text-slate-900">{project.name}</h3>
-                </div>
-                <button onClick={onClose} className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors mt-0.5">
-                    <X className="w-4 h-4" />
-                </button>
-            </div>
-
-            {/* Tabs */}
-            <div className="flex gap-1 px-6 pt-4 pb-0">
-                <button
-                    onClick={() => setTab('buka')}
-                    className={`flex items-center gap-1.5 py-2 px-4 rounded-lg text-xs font-semibold transition-all border ${
-                        tab === 'buka'
-                            ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
-                            : 'border-slate-200 text-slate-600 hover:bg-slate-50'
-                    }`}
-                >
-                    <Sliders className="w-3.5 h-3.5" />
-                    Buka Controls
-                </button>
-                <button
-                    onClick={() => setTab('ubah')}
-                    className={`flex items-center gap-1.5 py-2 px-4 rounded-lg text-xs font-semibold transition-all border ${
-                        tab === 'ubah'
-                            ? 'bg-slate-800 text-white border-slate-800 shadow-sm'
-                            : 'border-slate-200 text-slate-600 hover:bg-slate-50'
-                    }`}
-                >
-                    <Pencil className="w-3.5 h-3.5" />
-                    Ubah Details
-                </button>
-            </div>
-
-            <div className="px-6 py-5 space-y-4">
-                {/* ── Tab: Controls ── */}
-                {tab === 'buka' && (
-                    <>
-                        {/* Timer */}
-                        <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
-                            <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 uppercase tracking-wide mb-3">
-                                <Clock className="w-3.5 h-3.5 text-indigo-500" />
-                                Timer Hitung Mundur
-                            </label>
-                            <div className="flex gap-2">
-                                {TIMER_OPTIONS.map((t) => (
-                                    <button
-                                        key={t}
-                                        onClick={() => setTimer(t)}
-                                        className={`flex-1 py-2 rounded-lg text-xs font-bold border transition-all ${
-                                            timer === t
-                                                ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
-                                                : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
-                                        }`}
-                                    >
-                                        {t}s
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-
-                        {/* Layout Grid */}
-                        <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
-                            <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 uppercase tracking-wide mb-3">
-                                <LayoutGrid className="w-3.5 h-3.5 text-blue-500" />
-                                Kisi / Layout Foto
-                            </label>
-                            <div className="grid grid-cols-3 gap-2">
-                                {LAYOUT_OPTIONS.map((l) => (
-                                    <button
-                                        key={l}
-                                        onClick={() => setLayout(l)}
-                                        className={`py-2.5 rounded-lg text-xs font-semibold border transition-all text-center ${
-                                            layout === l
-                                                ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
-                                                : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
-                                        }`}
-                                    >
-                                        {l}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-
-                        {/* Frame & Filter */}
-                        <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
-                            <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 uppercase tracking-wide mb-2">
-                                <Layers className="w-3.5 h-3.5 text-violet-500" />
-                                Frame & Filter Presets
-                            </label>
-                            <div className="flex flex-wrap gap-2 mt-1">
-                                <span className="px-3 py-1.5 rounded-md bg-violet-50 text-violet-700 border border-violet-200 text-xs font-semibold">
-                                    {project.frame}
-                                </span>
-                                <span className="px-3 py-1.5 rounded-md bg-amber-50 text-amber-700 border border-amber-200 text-xs font-semibold">
-                                    Filter: {project.filter}
-                                </span>
-                            </div>
-                        </div>
-                    </>
-                )}
-
-                {/* ── Tab: Settings ── */}
-                {tab === 'ubah' && (
-                    <>
-                        <div>
-                            <label className="block text-xs font-semibold text-slate-700 mb-1.5">Judul Proyek</label>
-                            <input
-                                type="text"
-                                defaultValue={project.name}
-                                className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 transition"
-                            />
-                        </div>
-
-                        <div>
-                            <label className="block text-xs font-semibold text-slate-700 mb-1.5">Orientasi Layar</label>
-                            <div className="flex gap-2">
-                                {['Portrait', 'Landscape'].map((o) => (
-                                    <div
-                                        key={o}
-                                        className={`flex-1 py-2.5 rounded-lg border text-xs font-semibold text-center ${
-                                            project.orientation === o
-                                                ? 'bg-indigo-50 border-indigo-500 text-indigo-700'
-                                                : 'border-slate-200 text-slate-500 bg-white'
-                                        }`}
-                                    >
-                                        {o} {o === 'Portrait' ? '(9:16)' : '(16:9)'}
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-
-                        <div>
-                            <label className="block text-xs font-semibold text-slate-700 mb-1.5">Thumbnail & Pesan Selamat Datang</label>
-                            <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 flex items-start gap-4">
-                                <img
-                                    src={project.thumbnail}
-                                    alt="Welcome Thumbnail"
-                                    className="w-24 h-20 object-cover rounded-lg border border-slate-200 shrink-0"
-                                />
-                                <div className="flex-1 space-y-2.5">
-                                    <input
-                                        type="text"
-                                        defaultValue={project.welcomeMessage}
-                                        className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 transition"
-                                    />
-                                    <button className="flex items-center gap-1.5 py-1.5 px-3 rounded-lg bg-white border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-100 transition-colors">
-                                        <Upload className="w-3.5 h-3.5" />
-                                        Upload Thumbnail Baru
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </>
-                )}
-            </div>
-
-            {/* Footer */}
-            <div className="px-6 pb-5 flex justify-end gap-2 border-t border-slate-100 pt-4">
-                <button
-                    onClick={onClose}
-                    className="py-2 px-4 rounded-lg border border-slate-200 text-slate-700 text-sm font-semibold hover:bg-slate-50 transition-colors"
-                >
-                    Tutup
-                </button>
-                <button
-                    onClick={() => { alert('Perubahan berhasil disimpan!'); onClose(); }}
-                    className="py-2 px-5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold shadow-sm transition-colors flex items-center gap-1.5"
-                >
-                    <CheckCircle2 className="w-4 h-4" />
-                    Simpan Perubahan
-                </button>
-            </div>
-        </ModalShell>
-    );
-}
-
-// ─── Main Page ───────────────────────────────────────────────────────────────
-
-export default function Index() {
-    const [projects, setProjects] = useState(SAMPLE_PROJECTS);
-    const [showAddModal, setShowAddModal]     = useState(false);
-    const [activeProject, setActiveProject]   = useState(null);
-    const [detailTab, setDetailTab]           = useState('buka');
-
-    const openControls = (project) => { setActiveProject(project); setDetailTab('buka'); };
-    const openSettings = (project) => { setActiveProject(project); setDetailTab('ubah'); };
-
-    const handleCreate = (form) => {
-        const created = {
-            id: `PRJ-00${projects.length + 1}`,
-            name: form.name,
-            template: form.template,
-            orientation: form.orientation,
-            timer: 5,
-            layout: '4-Grid Strip',
-            frame: 'Standard Frame',
-            filter: 'Original',
-            lighting: 'Standard',
-            thumbnail: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?q=80&w=800&auto=format&fit=crop',
-            welcomeMessage: form.welcomeMessage || 'Selamat Datang!',
-            assignedDevice: 'Belum terhubung',
-            isLive: false,
-        };
-        setProjects([created, ...projects]);
-        setShowAddModal(false);
-    };
-
-    const liveCount = projects.filter(p => p.isLive).length;
-
-    return (
-        <AdminLayout title="Manajemen Proyek" hasLiveBooth={liveCount > 0}>
-            <Head title="Manajemen Proyek - Photobooth Studio" />
-
-            {/* ── Page Header ──────────────────────────────────────────────── */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
-                <div>
-                    <div className="flex items-center gap-2 mb-1">
-                        <FolderKanban className="w-5 h-5 text-indigo-600" />
-                        <h2 className="text-2xl font-bold text-slate-900 tracking-tight">
-                            Manajemen Proyek
-                        </h2>
-                    </div>
-                    <p className="text-sm text-slate-500">
-                        Buat proyek photobooth, lalu terapkan ke perangkat atau kiosk Anda.
-                    </p>
-                </div>
-
-                <button
-                    onClick={() => setShowAddModal(true)}
-                    id="btn-tambah-proyek"
-                    className="inline-flex items-center gap-2 py-2.5 px-5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold shadow-sm transition-colors shrink-0"
-                >
-                    <Plus className="w-4 h-4" />
-                    Tambah Proyek Baru
-                </button>
-            </div>
-
-            {/* ── Stats Bar ────────────────────────────────────────────────── */}
-            <div className="flex flex-wrap gap-3 mb-6">
-                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white border border-slate-200 text-sm text-slate-700 font-medium shadow-sm">
-                    <FolderKanban className="w-4 h-4 text-indigo-500" />
-                    <span>{projects.length} Proyek</span>
-                </div>
-                {liveCount > 0 && (
-                    <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-50 border border-emerald-200 text-sm text-emerald-700 font-semibold shadow-sm">
-                        <Radio className="w-3.5 h-3.5 animate-pulse" />
-                        <span>{liveCount} Booth Aktif (LIVE)</span>
-                    </div>
-                )}
-            </div>
-
-            {/* ── Project Grid ─────────────────────────────────────────────── */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                {projects.map((project) => (
-                    <ProjectCard
-                        key={project.id}
-                        project={project}
-                        onOpenControls={openControls}
-                        onOpenSettings={openSettings}
-                    />
-                ))}
-
-                {/* Add Project CTA Card */}
-                <button
-                    onClick={() => setShowAddModal(true)}
-                    className="flex flex-col items-center justify-center gap-3 bg-white border-2 border-dashed border-slate-300 rounded-2xl p-8 text-slate-400 hover:border-indigo-400 hover:text-indigo-600 hover:bg-indigo-50/50 transition-all duration-200 group min-h-[280px]"
-                >
-                    <div className="w-12 h-12 rounded-full bg-slate-100 group-hover:bg-indigo-100 flex items-center justify-center transition-colors">
-                        <Plus className="w-5 h-5" />
-                    </div>
-                    <span className="text-sm font-semibold">Tambah Proyek Baru</span>
-                    <span className="text-xs text-slate-400 text-center max-w-[180px]">
-                        Pilih template dan konfigurasikan proyek photobooth baru
-                    </span>
-                </button>
-            </div>
-
-            {/* ── Modals ───────────────────────────────────────────────────── */}
-            {showAddModal && (
-                <AddProjectModal
-                    onClose={() => setShowAddModal(false)}
-                    onCreate={handleCreate}
-                />
-            )}
-
-            {activeProject && (
-                <ProjectDetailModal
-                    project={activeProject}
-                    defaultTab={detailTab}
-                    onClose={() => setActiveProject(null)}
-                />
-            )}
-        </AdminLayout>
+        <span className="inline-flex items-center gap-1 rounded-input bg-slate-100 px-2 py-1 text-[11px] font-medium text-ink-muted">
+            <Icon className="h-3 w-3" />
+            <span className="max-w-[100px] truncate">{label}</span>
+        </span>
     );
 }

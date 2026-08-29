@@ -1,299 +1,258 @@
 import React, { useState, useEffect } from 'react';
-import { Head, Link } from '@inertiajs/react';
+import { Head } from '@inertiajs/react';
 import AdminLayout from '@/Layouts/AdminLayout';
-import { 
-    Camera, 
-    Sparkles, 
-    Sliders, 
-    Printer, 
-    QrCode, 
-    RotateCcw, 
-    Layers, 
-    Check, 
-    Play, 
-    Download,
-    Volume2,
-    Eye,
-    Zap,
-    Maximize2
-} from 'lucide-react';
+import { Camera, Printer, QrCode, Layers, Sliders, Check, RefreshCw, Zap } from 'lucide-react';
+import { PageHeader, Button, Card, CardHeader, CardBody, Modal, useToast, StatusBadge } from '@/Components/ui';
+
+const frames = [
+    { id: 'classic', name: 'Classic White', tone: 'border-slate-300 bg-white', label: 'text-slate-900', chip: 'bg-slate-100 text-slate-700' },
+    { id: 'wedding', name: 'Wedding Elegant', tone: 'border-amber-300 bg-amber-50', label: 'text-amber-900', chip: 'bg-amber-100 text-amber-800' },
+    { id: 'party', name: 'Party Neon', tone: 'border-violet-300 bg-violet-50', label: 'text-violet-900', chip: 'bg-violet-100 text-violet-800' },
+    { id: 'retro', name: 'Retro 90s', tone: 'border-orange-300 bg-orange-50', label: 'text-orange-900', chip: 'bg-orange-100 text-orange-800' },
+];
+
+const filters = [
+    { id: 'normal', name: 'Original', style: 'none' },
+    { id: 'sepia', name: 'Sepia Warm', style: 'sepia(0.6) contrast(1.1)' },
+    { id: 'viv', name: 'Vivid', style: 'saturate(1.4) contrast(1.1)' },
+    { id: 'emerald', name: 'Emerald Glow', style: 'hue-rotate(90deg) brightness(1.1)' },
+    { id: 'noir', name: 'Noir B&W', style: 'grayscale(1) contrast(1.2)' },
+];
 
 export default function Kiosk() {
-    const [selectedFrame, setSelectedFrame] = useState('cyberpunk');
+    const { toast } = useToast();
+    const [selectedFrame, setSelectedFrame] = useState('classic');
     const [selectedFilter, setSelectedFilter] = useState('normal');
     const [isCapturing, setIsCapturing] = useState(false);
     const [countdown, setCountdown] = useState(0);
-    const [photosCaptured, setPhotosCaptured] = useState([]);
-    const [showResultModal, setShowResultModal] = useState(false);
-    const [flashEffect, setFlashEffect] = useState(false);
+    const [photos, setPhotos] = useState([]);
+    const [showResult, setShowResult] = useState(false);
+    const [flash, setFlash] = useState(false);
 
-    const frames = [
-        { id: 'cyberpunk', name: 'Cyberpunk Neon 4-Strip', accent: 'from-brand-red to-brand-blue', border: 'border-brand-red' },
-        { id: 'wedding', name: 'Wedding Classic White', accent: 'from-amber-200 to-amber-400', border: 'border-amber-300' },
-        { id: 'emerald', name: 'Emerald Party Night', accent: 'from-brand-green to-teal-400', border: 'border-brand-green' },
-        { id: 'retro', name: 'Retro Vintage 90s', accent: 'from-orange-500 to-yellow-400', border: 'border-orange-400' },
-    ];
-
-    const filters = [
-        { id: 'normal', name: 'Original', style: 'none' },
-        { id: 'sepia', name: 'Sepia Warm', style: 'sepia(0.6) contrast(1.1)' },
-        { id: 'cyber', name: 'Cyber Neon', style: 'hue-rotate(180deg) saturate(1.4)' },
-        { id: 'emerald', name: 'Emerald Glow', style: 'hue-rotate(90deg) brightness(1.1)' },
-        { id: 'bw', name: 'Noir B&W', style: 'grayscale(1) contrast(1.2)' },
-    ];
-
-    // Trigger Photo Shutter Countdown
-    const startShutterSession = () => {
+    const startSession = () => {
         setIsCapturing(true);
-        setPhotosCaptured([]);
+        setPhotos([]);
         setCountdown(3);
     };
 
     useEffect(() => {
         let timer;
         if (isCapturing && countdown > 0) {
-            timer = setTimeout(() => {
-                setCountdown(prev => prev - 1);
-            }, 1000);
+            timer = setTimeout(() => setCountdown((p) => p - 1), 1000);
         } else if (isCapturing && countdown === 0) {
-            // Flash camera effect
-            setFlashEffect(true);
-            setTimeout(() => setFlashEffect(false), 300);
-
-            // Add simulated photo strip frame
-            const newPhoto = {
-                id: Date.now(),
-                url: `https://picsum.photos/seed/${Date.now()}/400/300`,
-                filter: selectedFilter,
-            };
-
-            setPhotosCaptured(prev => {
-                const nextPhotos = [...prev, newPhoto];
-                if (nextPhotos.length < 4) {
-                    setCountdown(3); // Trigger next photo in sequence
+            setFlash(true);
+            setTimeout(() => setFlash(false), 300);
+            setPhotos((prev) => {
+                const next = [
+                    ...prev,
+                    {
+                        id: Date.now(),
+                        url: `https://picsum.photos/seed/${Date.now()}/400/300`,
+                        filter: selectedFilter,
+                    },
+                ];
+                if (next.length < 4) {
+                    setCountdown(3);
                 } else {
                     setIsCapturing(false);
-                    setShowResultModal(true); // Complete 4-strip sequence
+                    setShowResult(true);
                 }
-                return nextPhotos;
+                return next;
             });
         }
-
         return () => clearTimeout(timer);
-    }, [isCapturing, countdown]);
+    }, [isCapturing, countdown, selectedFilter]);
+
+    const frame = frames.find((f) => f.id === selectedFrame);
 
     return (
-        <AdminLayout title="Photobooth Kiosk Live Simulator">
-            <Head title="Live Kiosk Simulator - Photobooth Studio" />
+        <AdminLayout title="Kiosk Simulator">
+            <Head title="Kiosk Simulator - Photobooth Studio" />
 
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                {/* Left Controls & Camera Viewport (8 Columns) */}
-                <div className="lg:col-span-8 flex flex-col space-y-6">
-                    {/* Camera Viewport Screen Container */}
-                    <div className="relative rounded-3xl overflow-hidden glass-panel border-2 border-slate-700 shadow-2xl bg-black min-h-[420px] sm:min-h-[480px] flex items-center justify-center">
-                        {/* Flash Screen Overlay */}
-                        {flashEffect && (
-                            <div className="absolute inset-0 bg-white z-50 animate-ping"></div>
-                        )}
+            <PageHeader
+                title="Kiosk Simulator"
+                description="Simulasi live sesi foto & kontrol frame photobooth."
+                icon={Camera}
+                actions={
+                    <Button
+                        variant="secondary"
+                        icon={RefreshCw}
+                        onClick={() => {
+                            setPhotos([]);
+                            setShowResult(false);
+                            setIsCapturing(false);
+                            setCountdown(0);
+                        }}
+                    >
+                        Reset
+                    </Button>
+                }
+            />
 
-                        {/* Viewport Live Simulation Canvas */}
-                        <div 
-                            className="absolute inset-0 bg-cover bg-center transition-all duration-300 flex flex-col justify-between p-6"
-                            style={{
-                                backgroundImage: `url('https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?q=80&w=1200&auto=format&fit=crop')`,
-                                filter: filters.find(f => f.id === selectedFilter)?.style || 'none',
-                            }}
-                        >
-                            {/* Live Overlay Frame Branding Header */}
-                            <div className="flex items-center justify-between z-10">
-                                <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-black/60 backdrop-blur-md border border-white/20 text-white text-xs font-extrabold tracking-wider">
-                                    <span className="w-2.5 h-2.5 rounded-full bg-brand-red animate-ping"></span>
-                                    <span>LIVE CAMERA 1080P</span>
-                                </div>
-
-                                <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-black/60 backdrop-blur-md border border-white/20 text-brand-green text-xs font-bold">
-                                    <span>FRAME: {frames.find(f => f.id === selectedFrame)?.name}</span>
-                                </div>
-                            </div>
-
-                            {/* Live Countdown Overlay Big Text */}
-                            {isCapturing && (
-                                <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/40 backdrop-blur-xs z-30">
-                                    <span className="text-8xl sm:text-9xl font-black text-transparent bg-clip-text bg-gradient-to-tr from-brand-red via-brand-blue to-brand-green animate-bounce">
-                                        {countdown}
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+                {/* Camera viewport */}
+                <div className="flex flex-col gap-6 lg:col-span-8">
+                    <Card>
+                        <CardBody className="relative flex min-h-[420px] items-center justify-center overflow-hidden rounded-card bg-slate-900 sm:min-h-[480px]">
+                            {flash && <div className="absolute inset-0 z-50 animate-ping bg-white" />}
+                            <div
+                                className="absolute inset-0 flex flex-col justify-between bg-cover bg-center p-6 transition-all duration-300"
+                                style={{
+                                    backgroundImage: `url('https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?q=80&w=1200&auto=format&fit=crop')`,
+                                    filter: filters.find((f) => f.id === selectedFilter)?.style || 'none',
+                                }}
+                            >
+                                <div className="flex items-center justify-between">
+                                    <span className="flex items-center gap-2 rounded-full bg-black/60 px-3 py-1 text-xs font-semibold text-white">
+                                        <span className="h-2 w-2 animate-ping rounded-full bg-red-500" /> LIVE
                                     </span>
-                                    <span className="text-sm font-bold text-white uppercase tracking-widest mt-2">
-                                        SMILE! TAKING PHOTO {photosCaptured.length + 1} OF 4
+                                    <span className="rounded-full bg-black/60 px-3 py-1 text-xs font-semibold text-white">
+                                        Frame: {frame?.name}
                                     </span>
                                 </div>
-                            )}
 
-                            {/* Viewport Bottom Overlay Indicator */}
-                            <div className="flex items-end justify-between z-10">
-                                <div className="bg-black/60 backdrop-blur-md p-3 rounded-2xl border border-white/10 flex items-center gap-3">
-                                    <div className="flex gap-1.5">
-                                        {[1, 2, 3, 4].map(num => (
-                                            <div 
-                                                key={num} 
-                                                className={`w-3 h-3 rounded-full border border-white/40 ${photosCaptured.length >= num ? 'bg-brand-green' : 'bg-white/20'}`}
-                                            ></div>
-                                        ))}
+                                {isCapturing && (
+                                    <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-black/40">
+                                        <span className="text-7xl font-black text-white sm:text-8xl">{countdown}</span>
+                                        <span className="mt-2 text-sm font-semibold uppercase tracking-widest text-white">
+                                            Foto {photos.length + 1} dari 4
+                                        </span>
                                     </div>
-                                    <span className="text-xs text-white font-bold">
-                                        {photosCaptured.length} / 4 Frames
+                                )}
+
+                                <div className="flex items-end justify-between">
+                                    <div className="flex items-center gap-3 rounded-input bg-black/60 p-2.5 text-xs font-semibold text-white">
+                                        <div className="flex gap-1.5">
+                                            {[1, 2, 3, 4].map((n) => (
+                                                <span
+                                                    key={n}
+                                                    className={`h-2.5 w-2.5 rounded-full border border-white/40 ${
+                                                        photos.length >= n ? 'bg-emerald-400' : 'bg-white/20'
+                                                    }`}
+                                                />
+                                            ))}
+                                        </div>
+                                        <span>{photos.length} / 4</span>
+                                    </div>
+                                    <span className="rounded-input bg-black/60 px-2.5 py-1 text-xs font-semibold text-white">
+                                        {filters.find((f) => f.id === selectedFilter)?.name}
                                     </span>
                                 </div>
+                            </div>
+                        </CardBody>
+                    </Card>
 
-                                <div className="bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-xl border border-white/10 text-xs font-bold text-slate-300">
-                                    Filter: {filters.find(f => f.id === selectedFilter)?.name}
+                    {/* Shutter control */}
+                    <Card>
+                        <CardBody className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                            <div className="flex items-center gap-3">
+                                <div className="flex h-11 w-11 items-center justify-center rounded-input bg-danger-subtle">
+                                    <Zap className="h-5 w-5 text-danger" />
+                                </div>
+                                <div>
+                                    <p className="font-semibold text-ink">Shutter Control</p>
+                                    <p className="text-xs text-ink-muted">Tekan untuk memulai sesi foto 4-strip</p>
                                 </div>
                             </div>
-                        </div>
-
-                        {/* Camera Grid Lines Overlay */}
-                        <div className="absolute inset-0 border border-white/10 pointer-events-none grid grid-cols-3 grid-rows-3">
-                            <div className="border-r border-b border-white/5"></div>
-                            <div className="border-r border-b border-white/5"></div>
-                            <div className="border-b border-white/5"></div>
-                            <div className="border-r border-b border-white/5"></div>
-                            <div className="border-r border-b border-white/5"></div>
-                            <div className="border-b border-white/5"></div>
-                        </div>
-                    </div>
-
-                    {/* Big Ruby Red Shutter Action Button Bar */}
-                    <div className="p-6 rounded-3xl glass-panel border border-slate-800 flex items-center justify-between gap-4">
-                        <div className="flex items-center gap-3">
-                            <div className="w-12 h-12 rounded-2xl bg-brand-red/10 border border-brand-red/30 flex items-center justify-center text-brand-red">
-                                <Zap className="w-6 h-6 animate-pulse" />
-                            </div>
-                            <div>
-                                <h3 className="font-extrabold text-white text-base">Shutter Control</h3>
-                                <p className="text-xs text-slate-400">Tekan tombol merah untuk memulai sesi foto 4-strip</p>
-                            </div>
-                        </div>
-
-                        <button
-                            onClick={startShutterSession}
-                            disabled={isCapturing}
-                            className={`
-                                px-8 py-4 rounded-2xl bg-gradient-to-r from-brand-red to-rose-600 text-white font-extrabold text-base tracking-wider
-                                shadow-2xl shadow-brand-red/40 hover:scale-105 active:scale-95 transition-all flex items-center gap-3
-                                disabled:opacity-50 disabled:scale-100 cursor-pointer
-                            `}
-                        >
-                            <div className="w-4 h-4 rounded-full bg-white animate-ping"></div>
-                            <span>{isCapturing ? 'CAPTURING...' : 'CAPTURE PHOTO STRIP'}</span>
-                        </button>
-                    </div>
+                            <Button
+                                onClick={startSession}
+                                disabled={isCapturing}
+                                className="shrink-0"
+                            >
+                                {isCapturing ? 'Memotret…' : 'Mulai Sesi Foto'}
+                            </Button>
+                        </CardBody>
+                    </Card>
                 </div>
 
-                {/* Right Options Sidebar: Frame & Filter Selector (4 Columns) */}
-                <div className="lg:col-span-4 flex flex-col space-y-6">
-                    {/* Frame Picker Panel */}
-                    <div className="p-6 rounded-3xl glass-panel border border-slate-800">
-                        <div className="flex items-center gap-2 mb-4">
-                            <Layers className="w-5 h-5 text-brand-blue" />
-                            <h3 className="font-bold text-white text-base">Pilih Frame Photobooth</h3>
-                        </div>
-
-                        <div className="space-y-3">
-                            {frames.map((frame) => (
+                {/* Controls sidebar */}
+                <div className="flex flex-col gap-6 lg:col-span-4">
+                    <Card>
+                        <CardHeader title="Pilih Frame" icon={Layers} />
+                        <CardBody className="space-y-2.5">
+                            {frames.map((fl) => (
                                 <button
-                                    key={frame.id}
-                                    onClick={() => setSelectedFrame(frame.id)}
-                                    className={`
-                                        w-full p-3.5 rounded-2xl border text-left transition-all duration-200 flex items-center justify-between
-                                        ${selectedFrame === frame.id 
-                                            ? `bg-brand-surface ${frame.border} border-2 shadow-lg` 
-                                            : 'border-slate-800 bg-brand-dark/50 text-slate-400 hover:border-slate-700 hover:text-white'}
-                                    `}
+                                    key={fl.id}
+                                    onClick={() => setSelectedFrame(fl.id)}
+                                    className={`flex w-full items-center justify-between rounded-card border p-3 text-left transition-colors cursor-pointer ${
+                                        selectedFrame === fl.id ? 'border-brand ring-2 ring-brand/20' : 'border-edge hover:border-slate-300'
+                                    }`}
                                 >
-                                    <div>
-                                        <p className="text-xs font-bold text-white">{frame.name}</p>
-                                        <p className="text-[10px] text-slate-400">Event Overlay Design</p>
-                                    </div>
-                                    {selectedFrame === frame.id && (
-                                        <Check className="w-4 h-4 text-brand-green" />
-                                    )}
+                                    <span className={`flex items-center gap-2.5 rounded-card border px-3 py-1.5 text-xs font-semibold ${fl.tone} ${fl.label}`}>
+                                        {fl.name}
+                                    </span>
+                                    {selectedFrame === fl.id && <Check className="h-4 w-4 text-brand" />}
                                 </button>
                             ))}
-                        </div>
-                    </div>
+                        </CardBody>
+                    </Card>
 
-                    {/* Filter Control Panel */}
-                    <div className="p-6 rounded-3xl glass-panel border border-slate-800">
-                        <div className="flex items-center gap-2 mb-4">
-                            <Sliders className="w-5 h-5 text-brand-green" />
-                            <h3 className="font-bold text-white text-base">Filter Warna Foto</h3>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-2.5">
-                            {filters.map((filter) => (
+                    <Card>
+                        <CardHeader title="Filter Warna" icon={Sliders} />
+                        <CardBody className="grid grid-cols-2 gap-2.5">
+                            {filters.map((fl) => (
                                 <button
-                                    key={filter.id}
-                                    onClick={() => setSelectedFilter(filter.id)}
-                                    className={`
-                                        p-3 rounded-xl border text-center transition-all duration-200 text-xs font-bold
-                                        ${selectedFilter === filter.id 
-                                            ? 'bg-brand-green/20 border-brand-green text-brand-green shadow-md' 
-                                            : 'border-slate-800 text-slate-400 bg-brand-dark/50 hover:bg-slate-800 hover:text-white'}
-                                    `}
+                                    key={fl.id}
+                                    onClick={() => setSelectedFilter(fl.id)}
+                                    className={`rounded-card border px-2 py-2.5 text-center text-xs font-medium transition-colors cursor-pointer ${
+                                        selectedFilter === fl.id
+                                            ? 'border-brand bg-brand-subtle text-brand-dark'
+                                            : 'border-edge text-ink-muted hover:border-slate-300 hover:text-ink'
+                                    }`}
                                 >
-                                    {filter.name}
+                                    {fl.name}
                                 </button>
                             ))}
-                        </div>
-                    </div>
+                        </CardBody>
+                    </Card>
                 </div>
             </div>
 
-            {/* Photo Strip Result Modal */}
-            {showResultModal && (
-                <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
-                    <div className="glass-panel p-6 sm:p-8 rounded-3xl border border-brand-blue/50 max-w-lg w-full shadow-2xl relative animate-float">
-                        <div className="text-center mb-6">
-                            <div className="w-12 h-12 rounded-2xl bg-brand-green/20 text-brand-green border border-brand-green/40 flex items-center justify-center mx-auto mb-3">
-                                <Sparkles className="w-6 h-6" />
-                            </div>
-                            <h3 className="text-2xl font-extrabold text-white">Sesi Foto Selesai!</h3>
-                            <p className="text-xs text-slate-400">Photo strip Anda telah berhasil di-generate dengan frame {selectedFrame}</p>
-                        </div>
-
-                        {/* Simulated Photo Strip Preview */}
-                        <div className="bg-brand-dark p-4 rounded-2xl border border-slate-700 mb-6 flex flex-col items-center gap-2.5">
-                            <div className="text-[10px] font-extrabold tracking-widest text-slate-400 uppercase">PHOTOBOOTH STUDIO STRIP</div>
-                            <div className="grid grid-cols-2 gap-2 w-full">
-                                {photosCaptured.map((photo, i) => (
-                                    <div key={i} className="aspect-video rounded-lg overflow-hidden border border-slate-700">
-                                        <img src={photo.url} alt={`Snap ${i}`} className="w-full h-full object-cover" />
-                                    </div>
-                                ))}
-                            </div>
-                            <div className="text-[9px] text-slate-500 font-mono">ID: SESH-{Math.floor(1000 + Math.random() * 9000)} • SANCTUM MOBILE SYNC OK</div>
-                        </div>
-
-                        {/* Actions: Print & Share QR */}
-                        <div className="flex gap-3">
-                            <button
-                                onClick={() => { alert('Perintah Cetak Dikirim ke Printer Photobooth!'); setShowResultModal(false); }}
-                                className="flex-1 py-3 px-4 rounded-xl bg-brand-green text-brand-dark font-extrabold text-xs shadow-lg flex items-center justify-center gap-2 hover:bg-brand-green-light"
-                            >
-                                <Printer className="w-4 h-4" />
-                                <span>CETAK STRIP</span>
-                            </button>
-
-                            <button
-                                onClick={() => { alert('QR Code Dibuat! Pengguna HP dapat mengunduh foto via Sanctum API.'); setShowResultModal(false); }}
-                                className="flex-1 py-3 px-4 rounded-xl bg-brand-blue text-brand-dark font-extrabold text-xs shadow-lg flex items-center justify-center gap-2 hover:bg-brand-blue-light"
-                            >
-                                <QrCode className="w-4 h-4" />
-                                <span>BAGIKAN QR MOBILE</span>
-                            </button>
-                        </div>
-                    </div>
+            {/* Result modal */}
+            <Modal
+                open={showResult}
+                onClose={() => setShowResult(false)}
+                maxWidth="lg"
+                title="Sesi Foto Selesai"
+                icon={Camera}
+                footer={
+                    <>
+                        <Button
+                            variant="secondary"
+                            icon={QrCode}
+                            onClick={() => {
+                                toast({ tone: 'info', title: 'QR dibuat', message: 'Pengguna dapat mengunduh via link galeri.' });
+                                setShowResult(false);
+                            }}
+                        >
+                            Bagikan QR
+                        </Button>
+                        <Button
+                            icon={Printer}
+                            onClick={() => {
+                                toast({ tone: 'success', title: 'Cetak dikirim', message: 'Perintah cetak diteruskan ke printer.' });
+                                setShowResult(false);
+                            }}
+                        >
+                            Cetak Strip
+                        </Button>
+                    </>
+                }
+            >
+                <p className="mb-4 text-sm text-ink-muted">
+                    Strip foto berhasil dibuat menggunakan frame {frame?.name}.
+                </p>
+                <div className="grid grid-cols-2 gap-2.5">
+                    {photos.map((p, i) => (
+                        <img
+                            key={p.id}
+                            src={p.url}
+                            alt={`Snap ${i + 1}`}
+                            className="aspect-video w-full rounded-card border border-edge object-cover"
+                        />
+                    ))}
                 </div>
-            )}
+            </Modal>
         </AdminLayout>
     );
 }

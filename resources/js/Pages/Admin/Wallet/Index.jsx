@@ -1,71 +1,162 @@
-import React from 'react';
+import React, { useMemo, useState } from 'react';
 import { Head } from '@inertiajs/react';
 import AdminLayout from '@/Layouts/AdminLayout';
-import { Wallet, Plus, ArrowUpRight, ArrowDownLeft, CreditCard, ShieldCheck } from 'lucide-react';
+import { Wallet as WalletIcon, ArrowDownLeft, ArrowUpRight, Plus, Download, Landmark } from 'lucide-react';
+import {
+    PageHeader,
+    Button,
+    Card,
+    CardHeader,
+    CardBody,
+    StatCard,
+    StatusBadge,
+    Table,
+    Pagination,
+    FilterPill,
+    FilterBar,
+    useToast,
+    EmptyState,
+} from '@/Components/ui';
+
+const mutasi = [
+    { id: 'MUT-001', type: 'Pencairan Otomatis', ref: 'TRX-9981', amount: 35000, isIncome: true, date: '25 Agu 2026 · 14:32', method: 'Automatis' },
+    { id: 'MUT-002', type: 'Pencairan Otomatis', ref: 'TRX-9980', amount: 70000, isIncome: true, date: '25 Agu 2026 · 14:15', method: 'Automatis' },
+    { id: 'MUT-003', type: 'Biaya Langganan', ref: 'Event Pro', amount: 699000, isIncome: false, date: '20 Agu 2026 · 09:00', method: 'Langganan' },
+    { id: 'MUT-004', type: 'Top Up Saldo', ref: 'Transfer Bank', amount: 1000000, isIncome: true, date: '12 Agu 2026 · 10:11', method: 'Manual' },
+];
+
+const income = mutasi.filter((m) => m.isIncome).reduce((s, m) => s + m.amount, 0);
+const expense = mutasi.filter((m) => !m.isIncome).reduce((s, m) => s + m.amount, 0);
+const balance = 4850000 + income - expense;
+
+const fmt = (n) => 'Rp ' + n.toLocaleString('id-ID');
 
 export default function Index() {
-    return (
-        <AdminLayout title="Dompet & Saldo Operator Photobooth">
-            <Head title="Dompet Saldo - Photobooth Studio" />
+    const { toast } = useToast();
+    const [filter, setFilter] = useState('all');
+    const [page, setPage] = useState(1);
+    const [perPage, setPerPage] = useState(6);
 
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                {/* Balance Summary Card (5 Cols) */}
-                <div className="lg:col-span-5 space-y-6">
-                    <div className="p-8 rounded-3xl glass-panel border border-brand-green/40 bg-gradient-to-tr from-brand-dark via-brand-surface to-brand-green/20 shadow-2xl relative overflow-hidden">
-                        <div className="flex items-center justify-between mb-6">
-                            <span className="text-xs font-bold text-slate-300 uppercase tracking-wider">Saldo Utama Photobooth</span>
-                            <Wallet className="w-6 h-6 text-brand-green" />
-                        </div>
+    const visible = useMemo(
+        () => (filter === 'all' ? mutasi : mutasi.filter((m) => (filter === 'income' ? m.isIncome : !m.isIncome))),
+        [filter],
+    );
 
-                        <div className="mb-6">
-                            <span className="text-4xl font-extrabold text-white tracking-tight">Rp 4.850.000</span>
-                            <p className="text-xs text-brand-green font-semibold mt-1">● Saldo Siap Ditarik / Payout</p>
-                        </div>
-
-                        <div className="flex gap-3">
-                            <button onClick={() => alert('Topup Saldo Dompet...')} className="flex-1 py-3 px-4 rounded-xl bg-brand-green text-brand-dark font-extrabold text-xs shadow-lg flex items-center justify-center gap-2">
-                                <Plus className="w-4 h-4" />
-                                <span>Top Up Saldo</span>
-                            </button>
-
-                            <button onClick={() => alert('Penarikan Saldo Ke Bank...')} className="flex-1 py-3 px-4 rounded-xl bg-brand-surface border border-slate-700 text-white font-bold text-xs flex items-center justify-center gap-2 hover:border-slate-500">
-                                <ArrowUpRight className="w-4 h-4 text-brand-blue" />
-                                <span>Tarik Saldo</span>
-                            </button>
-                        </div>
+    const columns = [
+        {
+            key: 'type',
+            label: 'Mutasi',
+            render: (r) => (
+                <div className="flex items-center gap-3">
+                    <div
+                        className={`flex h-9 w-9 items-center justify-center rounded-input ${
+                            r.isIncome ? 'bg-success-subtle text-success' : 'bg-danger-subtle text-danger'
+                        }`}
+                    >
+                        {r.isIncome ? <ArrowDownLeft className="h-4 w-4" /> : <ArrowUpRight className="h-4 w-4" />}
+                    </div>
+                    <div>
+                        <p className="font-medium text-ink">{r.type}</p>
+                        <p className="text-xs text-ink-muted">{r.ref}</p>
                     </div>
                 </div>
+            ),
+        },
+        { key: 'date', label: 'Tanggal', render: (r) => <span className="text-sm text-ink-muted">{r.date}</span> },
+        { key: 'method', label: 'Metode', render: (r) => <StatusBadge tone="neutral">{r.method}</StatusBadge> },
+        {
+            key: 'amount',
+            label: 'Nominal',
+            align: 'right',
+            render: (r) => (
+                <span className={`font-medium tabular-nums ${r.isIncome ? 'text-success' : 'text-ink'}`}>
+                    {r.isIncome ? '+' : '−'} {fmt(r.amount)}
+                </span>
+            ),
+        },
+    ];
 
-                {/* Mutasi Saldo List (7 Cols) */}
-                <div className="lg:col-span-7">
-                    <div className="glass-panel p-6 sm:p-8 rounded-3xl border border-slate-800 space-y-4">
-                        <h3 className="font-bold text-white text-base border-b border-slate-800 pb-3">Riwayat Mutasi Saldo Dompet</h3>
+    return (
+        <AdminLayout title="Dompet">
+            <Head title="Dompet - Photobooth Studio" />
 
-                        <div className="space-y-3">
-                            {[
-                                { id: 'MUT-001', type: 'Pencairan Otomatis TRX-9981', amount: '+ Rp 35.000', isIncome: true, date: '2026-08-25 14:32' },
-                                { id: 'MUT-002', type: 'Pencairan Otomatis TRX-9980', amount: '+ Rp 70.000', isIncome: true, date: '2026-08-25 14:15' },
-                                { id: 'MUT-003', type: 'Biaya Langganan Event Pro', amount: '- Rp 699.000', isIncome: false, date: '2026-08-20 09:00' },
-                            ].map((mut) => (
-                                <div key={mut.id} className="p-4 rounded-2xl bg-brand-surface/60 border border-slate-800 flex items-center justify-between">
-                                    <div className="flex items-center gap-3">
-                                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${mut.isIncome ? 'bg-brand-green/10 text-brand-green' : 'bg-brand-red/10 text-brand-red'}`}>
-                                            {mut.isIncome ? <ArrowDownLeft className="w-4 h-4" /> : <ArrowUpRight className="w-4 h-4" />}
-                                        </div>
-                                        <div>
-                                            <p className="text-xs font-bold text-white">{mut.type}</p>
-                                            <p className="text-[10px] text-slate-400 font-mono">{mut.date}</p>
-                                        </div>
-                                    </div>
-                                    <span className={`font-mono font-extrabold text-xs ${mut.isIncome ? 'text-brand-green' : 'text-brand-red'}`}>
-                                        {mut.amount}
-                                    </span>
-                                </div>
-                            ))}
+            <PageHeader
+                title="Dompet"
+                description="Saldo operator dan riwayat mutasi transaksi photobooth."
+                icon={WalletIcon}
+                actions={
+                    <Button icon={Plus} onClick={() => toast({ tone: 'info', title: 'Top up', message: 'Pembayaran top up diarahkan ke bank terkait.' })}>
+                        Top Up
+                    </Button>
+                }
+            />
+
+            {/* Balance card */}
+            <div className="mb-6">
+                <div className="relative overflow-hidden rounded-card border border-brand/20 bg-gradient-to-br from-brand to-brand-dark p-6 text-white sm:p-8">
+                    <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/10" />
+                    <div className="pointer-events-none absolute -bottom-14 -left-8 h-40 w-40 rounded-full bg-white/5" />
+                    <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                            <p className="text-sm font-medium text-brand-light/80">Saldo Utama</p>
+                            <p className="mt-1 text-3xl font-bold tracking-tight sm:text-4xl">{fmt(balance)}</p>
+                            <p className="mt-1 flex items-center gap-1.5 text-xs text-brand-light/80">
+                                <Landmark className="h-3.5 w-3.5" /> Siap untuk pencairan
+                            </p>
+                        </div>
+                        <div className="flex gap-2.5">
+                            <button
+                                onClick={() => toast({ tone: 'info', title: 'Tarik saldo', message: 'Ajukan penarikan ke rekening bank terdaftar.' })}
+                                className="rounded-input bg-white/95 px-4 py-2 text-sm font-semibold text-brand-dark transition-colors hover:bg-white cursor-pointer"
+                            >
+                                Tarik Saldo
+                            </button>
+                            <button
+                                onClick={() => toast({ tone: 'info', title: 'Unduh laporan', message: 'Laporan mutasi diunduh sebagai CSV.' })}
+                                className="flex items-center gap-2 rounded-input border border-white/30 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/10 cursor-pointer"
+                            >
+                                <Download className="h-4 w-4" /> Laporan
+                            </button>
                         </div>
                     </div>
                 </div>
             </div>
+
+            <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+                <StatCard label="Total Pemasukan" value={fmt(income)} note="30 hari terakhir" tone="success" />
+                <StatCard label="Total Pengeluaran" value={fmt(expense)} note="30 hari terakhir" tone="danger" />
+                <StatCard label="Jumlah Transaksi" value={mutasi.length} note="Semua waktu" />
+            </div>
+
+            <Card>
+                <CardHeader
+                    title="Riwayat Mutasi"
+                    description="Semua perubahan saldo dompet"
+                    icon={WalletIcon}
+                    actions={
+                        <FilterPill
+                            value={filter}
+                            onChange={(v) => {
+                                setFilter(v);
+                                setPage(1);
+                            }}
+                            options={[
+                                { value: 'all', label: 'Semua' },
+                                { value: 'income', label: 'Masuk' },
+                                { value: 'expense', label: 'Keluar' },
+                            ]}
+                        />
+                    }
+                />
+                {visible.length === 0 ? (
+                    <EmptyState icon={WalletIcon} title="Tidak ada mutasi" description="Belum ada mutasi untuk filter ini." />
+                ) : (
+                    <>
+                        <Table columns={columns} rows={visible.slice((page - 1) * perPage, page * perPage)} rowKey="id" />
+                        <Pagination page={page} total={visible.length} perPage={perPage} onPageChange={setPage} onPerPageChange={setPerPage} />
+                    </>
+                )}
+            </Card>
         </AdminLayout>
     );
 }

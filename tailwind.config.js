@@ -10,57 +10,55 @@ export default {
         './resources/js/**/*.jsx',
     ],
 
-    darkMode: 'class',
-
     theme: {
         extend: {
             fontFamily: {
-                sans: ['Outfit', 'Inter', ...defaultTheme.fontFamily.sans],
+                sans: ['Inter', 'system-ui', ...defaultTheme.fontFamily.sans],
             },
             colors: {
                 brand: {
-                    dark: '#080C14',
-                    surface: '#0F1626',
-                    card: '#151F32',
-                    border: '#1E2D4A',
-                    // Red Accent (Shutter / Live / Alert)
-                    red: {
-                        DEFAULT: '#FF2E63',
-                        glow: '#FF2E634D',
-                        hover: '#E02654',
-                        light: '#FF5C85',
-                    },
-                    // Blue Accent (Primary Action / Filters / UI)
-                    blue: {
-                        DEFAULT: '#00F2FE',
-                        glow: '#00F2FE4D',
-                        dark: '#3B82F6',
-                        light: '#70F8FF',
-                    },
-                    // Green Accent (Status Online / Print / Success)
-                    green: {
-                        DEFAULT: '#00F5A0',
-                        glow: '#00F5A04D',
-                        dark: '#10B981',
-                        light: '#61FFC3',
-                    },
+                    DEFAULT: '#1D4ED8',
+                    dark: '#1E3A8A',
+                    darker: '#172554',
+                    light: '#3B82F6',
+                    lighter: '#DBEAFE',
+                    subtle: '#EFF6FF',
                 },
-            },
-            animation: {
-                'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
-                'glow-spin': 'glowSpin 10s linear infinite',
-                'float': 'float 3s ease-in-out infinite',
-            },
-            keyframes: {
-                glowSpin: {
-                    '0%': { transform: 'rotate(0deg)' },
-                    '100%': { transform: 'rotate(360deg)' },
+                success: {
+                    DEFAULT: '#059669',
+                    subtle: '#ECFDF5',
+                    border: '#A7F3D0',
                 },
-                float: {
-                    '0%, 100%': { transform: 'translateY(0px)' },
-                    '50%': { transform: 'translateY(-6px)' },
-                }
-            }
+                warning: {
+                    DEFAULT: '#D97706',
+                    subtle: '#FFFBEB',
+                    border: '#FDE68A',
+                },
+                danger: {
+                    DEFAULT: '#DC2626',
+                    subtle: '#FEF2F2',
+                    border: '#FECACA',
+                },
+                ink: {
+                    DEFAULT: '#0F172A',
+                    muted: '#64748B',
+                    faint: '#94A3B8',
+                },
+                canvas: '#F8FAFC',
+                surface: '#FFFFFF',
+                edge: '#E2E8F0',
+            },
+            borderRadius: {
+                DEFAULT: '8px',
+                input: '8px',
+                card: '10px',
+                modal: '14px',
+            },
+            boxShadow: {
+                card: '0 1px 2px 0 rgba(15, 23, 42, 0.04)',
+                cardHover: '0 4px 12px -2px rgba(15, 23, 42, 0.08)',
+                pop: '0 10px 30px -8px rgba(15, 23, 42, 0.18)',
+            },
         },
     },
 

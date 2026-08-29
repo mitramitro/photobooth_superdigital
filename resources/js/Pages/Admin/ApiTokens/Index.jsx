@@ -1,187 +1,202 @@
 import React, { useState } from 'react';
-import { Head, Link } from '@inertiajs/react';
+import { Head } from '@inertiajs/react';
 import AdminLayout from '@/Layouts/AdminLayout';
-import { 
-    KeyRound, 
-    Smartphone, 
-    Plus, 
-    Copy, 
-    Check, 
-    Trash2, 
-    ShieldCheck, 
-    BookOpen, 
-    Code2,
-    Sparkles,
-    AlertCircle
-} from 'lucide-react';
+import { KeyRound, Plus, Copy, Check, Trash2, Smartphone, ShieldCheck, BookOpen } from 'lucide-react';
+import {
+    PageHeader,
+    Button,
+    Card,
+    CardHeader,
+    CardBody,
+    StatusBadge,
+    Modal,
+    Field,
+    Input,
+    Checkbox,
+    ConfirmDialog,
+    useToast,
+    EmptyState,
+    Alert,
+} from '@/Components/ui';
+
+const permissionOptions = ['photos:read', 'sessions:create', 'print:send', '*'];
+
+const initialTokens = [
+    { id: 1, name: 'Flutter Mobile App (iOS)', token: '1|sanctum_token_8891abc728x9910', permissions: ['photos:read', 'sessions:create'], created: '2 jam lalu', lastUsed: '5 menit lalu' },
+    { id: 2, name: 'Android Photobooth App', token: '2|sanctum_token_7721xyz991q0021', permissions: ['photos:read', 'sessions:create', 'print:send'], created: '1 hari lalu', lastUsed: '12 menit lalu' },
+    { id: 3, name: 'Kiosk Controller #01', token: '3|sanctum_token_9912kiosk8817263', permissions: ['*'], created: '3 hari lalu', lastUsed: 'Sedang aktif' },
+];
 
 export default function Index() {
-    const [tokens, setTokens] = useState([
-        { id: 1, name: 'Flutter Mobile App (iOS)', token: '1|sanctum_token_8891abc728x9910', permissions: ['photos:read', 'sessions:create'], created: '2 jam yang lalu', lastUsed: '5 menit yang lalu' },
-        { id: 2, name: 'Android Photobooth App', token: '2|sanctum_token_7721xyz991q0021', permissions: ['photos:read', 'sessions:create', 'print:send'], created: '1 hari yang lalu', lastUsed: '12 menit yang lalu' },
-        { id: 3, name: 'Kiosk Controller Station #01', token: '3|sanctum_token_9912kiosk8817263', permissions: ['*'], created: '3 hari yang lalu', lastUsed: 'Sedang aktif' },
-    ]);
+    const { toast } = useToast();
+    const [tokens, setTokens] = useState(initialTokens);
+    const [modal, setModal] = useState(false);
+    const [name, setName] = useState('');
+    const [selectedPerms, setSelectedPerms] = useState(['photos:read', 'sessions:create']);
+    const [confirm, setConfirm] = useState(null);
+    const [copied, setCopied] = useState(null);
 
-    const [showModal, setShowModal] = useState(false);
-    const [tokenName, setTokenName] = useState('');
-    const [copiedToken, setCopiedToken] = useState(null);
+    const copy = (token) => {
+        navigator.clipboard?.writeText(token);
+        setCopied(token);
+        setTimeout(() => setCopied(null), 2000);
+        toast({ tone: 'success', title: 'Token disalin' });
+    };
 
-    const handleCreateToken = (e) => {
-        e.preventDefault();
-        if (!tokenName) return;
+    const togglePerm = (p) => {
+        if (p === '*') {
+            setSelectedPerms((prev) => (prev.includes('*') ? [] : ['*']));
+            return;
+        }
+        setSelectedPerms((prev) => {
+            const base = prev.includes('*') ? [] : prev;
+            return base.includes(p) ? base.filter((x) => x !== p) : [...base, p];
+        });
+    };
 
+    const create = () => {
+        if (!name.trim()) return;
         const newToken = {
             id: Date.now(),
-            name: tokenName,
+            name: name.trim(),
             token: `${tokens.length + 1}|sanctum_token_${Math.random().toString(36).substring(2, 12)}`,
-            permissions: ['photos:read', 'sessions:create'],
+            permissions: selectedPerms,
             created: 'Baru saja',
             lastUsed: 'Belum pernah',
         };
-
-        setTokens([newToken, ...tokens]);
-        setTokenName('');
-        setShowModal(false);
+        setTokens((prev) => [newToken, ...prev]);
+        setModal(false);
+        setName('');
+        toast({ tone: 'success', title: 'Token dibuat', message: `${newToken.name} berhasil dibuat.` });
     };
 
-    const handleCopy = (tokenString) => {
-        navigator.clipboard.writeText(tokenString);
-        setCopiedToken(tokenString);
-        setTimeout(() => setCopiedToken(null), 2000);
-    };
-
-    const handleDelete = (id) => {
-        setTokens(tokens.filter(t => t.id !== id));
+    const remove = () => {
+        setTokens((prev) => prev.filter((t) => t.id !== confirm.id));
+        toast({ tone: 'warning', title: 'Token dihapus', message: `${confirm.name} telah dihapus.` });
+        setConfirm(null);
     };
 
     return (
-        <AdminLayout title="Manajemen Sanctum API Token Mobile">
-            <Head title="Sanctum API Tokens - Photobooth Studio" />
+        <AdminLayout title="API Tokens">
+            <Head title="API Tokens - Photobooth Studio" />
 
-            {/* Header Banner */}
-            <div className="mb-8 p-6 sm:p-8 rounded-3xl glass-panel border border-slate-800 bg-gradient-to-r from-brand-blue/15 via-brand-dark to-brand-green/15 flex flex-col md:flex-row md:items-center justify-between gap-6">
-                <div>
-                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-surface border border-slate-700 text-xs font-bold text-brand-blue mb-3">
-                        <Smartphone className="w-3.5 h-3.5" />
-                        <span>SANCTUM API ENGINE READY</span>
-                    </div>
-                    <h2 className="text-2xl font-extrabold text-white">
-                        Integrasi Aplikasi Mobile & Sanctum API Tokens
-                    </h2>
-                    <p className="text-slate-300 text-sm mt-1 max-w-xl">
-                        Kelola kunci autentikasi Bearer Token untuk pengembang aplikasi mobile (iOS/Android/Flutter) dan perangkat Photobooth Kiosk.
-                    </p>
-                </div>
+            <PageHeader
+                title="API Tokens"
+                description="Kelola Sanctum bearer token untuk aplikasi mobile dan kiosk."
+                icon={KeyRound}
+                actions={
+                    <>
+                        <Button variant="secondary" icon={BookOpen} onClick={() => (window.location.href = '/admin/scalar-docs')}>
+                            Buka API Docs
+                        </Button>
+                        <Button icon={Plus} onClick={() => setModal(true)}>
+                            Buat Token
+                        </Button>
+                    </>
+                }
+            />
 
-                <div className="flex items-center gap-3 shrink-0">
-                    <Link
-                        href="/docs"
-                        className="py-3 px-5 rounded-2xl bg-brand-green text-brand-dark font-extrabold text-sm shadow-lg hover:bg-brand-green-light transition-all flex items-center gap-2"
-                    >
-                        <BookOpen className="w-4 h-4" />
-                        <span>Buka Scalar API Docs</span>
-                    </Link>
+            <Alert title="Simpan token dengan aman" tone="warning" className="mb-6">
+                Token hanya ditampilkan sekali saat pembuatan. Simpan di tempat aman untuk integrasi aplikasi Anda.
+            </Alert>
 
-                    <button
-                        onClick={() => setShowModal(true)}
-                        className="py-3 px-5 rounded-2xl bg-brand-blue text-brand-dark font-extrabold text-sm shadow-lg hover:bg-brand-blue-light transition-all flex items-center gap-2"
-                    >
-                        <Plus className="w-4 h-4" />
-                        <span>Buat Token Baru</span>
-                    </button>
-                </div>
-            </div>
-
-            {/* Tokens List Table */}
-            <div className="glass-panel p-6 rounded-3xl border border-slate-800">
-                <div className="flex items-center justify-between mb-6">
-                    <div className="flex items-center gap-2">
-                        <KeyRound className="w-5 h-5 text-brand-blue" />
-                        <h3 className="font-bold text-white text-base">Token Aktif ({tokens.length})</h3>
-                    </div>
-                </div>
-
-                <div className="space-y-4">
-                    {tokens.map((t) => (
-                        <div key={t.id} className="p-4 sm:p-5 rounded-2xl bg-brand-surface/80 border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                            <div className="space-y-1">
-                                <div className="flex items-center gap-2">
-                                    <span className="font-bold text-white text-sm">{t.name}</span>
-                                    <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-brand-blue/20 text-brand-blue border border-brand-blue/30">
-                                        Bearer Token
-                                    </span>
+            <Card>
+                <CardHeader
+                    title={`Token Aktif (${tokens.length})`}
+                    description="Client yang terhubung ke backend Sanctum"
+                    icon={KeyRound}
+                />
+                {tokens.length === 0 ? (
+                    <EmptyState icon={KeyRound} title="Belum ada token" description="Buat token pertama untuk mengintegrasikan aplikasi." />
+                ) : (
+                    <CardBody className="divide-y divide-edge">
+                        {tokens.map((t) => (
+                            <div key={t.id} className="flex flex-col gap-4 py-4 first:pt-0 last:pb-0 lg:flex-row lg:items-center lg:justify-between">
+                                <div className="min-w-0">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        <Smartphone className="h-4 w-4 text-ink-faint" />
+                                        <span className="font-medium text-ink">{t.name}</span>
+                                        <StatusBadge tone="info">Bearer</StatusBadge>
+                                    </div>
+                                    <div className="mt-2 flex items-center gap-2">
+                                        <code className="truncate rounded-input bg-slate-100 px-2.5 py-1 font-mono text-xs text-ink-muted">
+                                            {t.token}
+                                        </code>
+                                        <button
+                                            onClick={() => copy(t.token)}
+                                            className="text-ink-faint transition-colors hover:text-brand cursor-pointer"
+                                            title="Salin token"
+                                        >
+                                            {copied === t.token ? <Check className="h-4 w-4 text-success" /> : <Copy className="h-4 w-4" />}
+                                        </button>
+                                    </div>
+                                    <div className="mt-2 flex flex-wrap gap-1.5">
+                                        {t.permissions.map((p) => (
+                                            <span key={p} className="rounded-input bg-brand-subtle px-1.5 py-0.5 font-mono text-[10px] text-brand-dark">
+                                                {p}
+                                            </span>
+                                        ))}
+                                    </div>
                                 </div>
-
-                                <div className="flex items-center gap-2 font-mono text-xs text-slate-400 bg-brand-dark/80 px-3 py-1.5 rounded-lg border border-slate-800 w-fit">
-                                    <span>{t.token}</span>
-                                    <button 
-                                        onClick={() => handleCopy(t.token)}
-                                        className="text-slate-400 hover:text-brand-blue transition-colors ml-2"
-                                        title="Copy token"
+                                <div className="flex items-center gap-4 text-xs text-ink-muted lg:shrink-0">
+                                    <div className="text-right">
+                                        <p className="font-medium text-ink">Terpakai: {t.lastUsed}</p>
+                                        <p>Dibuat: {t.created}</p>
+                                    </div>
+                                    <button
+                                        onClick={() => setConfirm(t)}
+                                        className="rounded-input border border-edge p-2 text-ink-faint transition-colors hover:border-danger hover:text-danger cursor-pointer"
+                                        title="Hapus token"
                                     >
-                                        {copiedToken === t.token ? <Check className="w-3.5 h-3.5 text-brand-green" /> : <Copy className="w-3.5 h-3.5" />}
+                                        <Trash2 className="h-4 w-4" />
                                     </button>
                                 </div>
                             </div>
+                        ))}
+                    </CardBody>
+                )}
+            </Card>
 
-                            <div className="flex items-center gap-4 text-xs text-slate-400">
-                                <div className="text-right hidden sm:block">
-                                    <p className="text-slate-300 font-medium">Terakhir Digunakan: {t.lastUsed}</p>
-                                    <p className="text-[10px]">Dibuat: {t.created}</p>
-                                </div>
-
-                                <button
-                                    onClick={() => handleDelete(t.id)}
-                                    className="p-2 rounded-xl text-slate-400 hover:text-brand-red hover:bg-brand-red/10 transition-colors"
-                                    title="Hapus Token"
-                                >
-                                    <Trash2 className="w-4 h-4" />
-                                </button>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            </div>
-
-            {/* Create Token Modal */}
-            {showModal && (
-                <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
-                    <div className="glass-panel p-6 sm:p-8 rounded-3xl border border-brand-blue/40 max-w-md w-full shadow-2xl">
-                        <h3 className="text-xl font-extrabold text-white mb-2">Buat Sanctum API Token</h3>
-                        <p className="text-xs text-slate-400 mb-6">Masukkan nama aplikasi mobile atau klien yang akan terhubung ke backend Laravel Sanctum.</p>
-
-                        <form onSubmit={handleCreateToken} className="space-y-4">
-                            <div>
-                                <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">Nama Token App</label>
-                                <input
-                                    type="text"
-                                    value={tokenName}
-                                    onChange={(e) => setTokenName(e.target.value)}
-                                    placeholder="Contoh: Flutter Mobile iOS Client"
-                                    className="w-full px-4 py-3 bg-brand-dark border border-slate-700 rounded-xl text-sm text-white focus:outline-none focus:border-brand-blue"
-                                    required
-                                />
-                            </div>
-
-                            <div className="flex gap-3 pt-2">
-                                <button
-                                    type="button"
-                                    onClick={() => setShowModal(false)}
-                                    className="flex-1 py-3 px-4 rounded-xl border border-slate-700 text-slate-300 font-bold text-xs hover:bg-slate-800"
-                                >
-                                    Batal
-                                </button>
-                                <button
-                                    type="submit"
-                                    className="flex-1 py-3 px-4 rounded-xl bg-brand-blue text-brand-dark font-extrabold text-xs shadow-lg hover:bg-brand-blue-light"
-                                >
-                                    Generate Token
-                                </button>
-                            </div>
-                        </form>
+            <Modal
+                open={modal}
+                onClose={() => setModal(false)}
+                maxWidth="md"
+                title="Buat API Token"
+                icon={KeyRound}
+                footer={
+                    <>
+                        <Button variant="secondary" onClick={() => setModal(false)}>Batal</Button>
+                        <Button onClick={create} disabled={!name.trim()}>Generate Token</Button>
+                    </>
+                }
+            >
+                <Field label="Nama token" required hint="Contoh: Flutter Mobile iOS Client">
+                    <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Nama aplikasi / klien" />
+                </Field>
+                <div className="mt-5">
+                    <p className="mb-2 text-sm font-medium text-ink">Perizinan akses</p>
+                    <div className="space-y-2.5">
+                        {permissionOptions.map((p) => (
+                            <Checkbox
+                                key={p}
+                                checked={selectedPerms.includes('*') || selectedPerms.includes(p)}
+                                onChange={() => togglePerm(p)}
+                                label={p === '*' ? 'Semua akses (*)' : p}
+                                disabled={selectedPerms.includes('*') && p !== '*'}
+                            />
+                        ))}
                     </div>
                 </div>
-            )}
+            </Modal>
+
+            <ConfirmDialog
+                open={!!confirm}
+                onClose={() => setConfirm(null)}
+                onConfirm={remove}
+                title="Hapus token?"
+                message={`Token "${confirm?.name}" akan dinonaktifkan dan client kehilangan akses.`}
+                confirmLabel="Hapus"
+            />
         </AdminLayout>
     );
 }

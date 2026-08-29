@@ -1,134 +1,260 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Head } from '@inertiajs/react';
 import AdminLayout from '@/Layouts/AdminLayout';
-import { 
-    Image as ImageIcon, 
-    Plus, 
-    Calendar, 
-    Layers, 
-    Download, 
-    Printer, 
-    QrCode, 
-    Search, 
-    Filter, 
-    X,
-    FolderKanban,
-    Sparkles
-} from 'lucide-react';
+import { Image as ImageIcon, Download, Printer, Trash2, Upload, X } from 'lucide-react';
+import {
+    PageHeader,
+    Button,
+    SearchInput,
+    FilterBar,
+    Select,
+    Card,
+    EmptyState,
+    useToast,
+    PhotoThumbnail,
+    ConfirmDialog,
+    Modal,
+} from '@/Components/ui';
+
+const initialPhotos = [
+    { id: 'SESH-8891', project: 'Photobox Retail Grand Mall', session: 'Sesi #142', date: '2026-08-25', template: 'Cyberpunk Neon', url: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?q=80&w=600&auto=format&fit=crop' },
+    { id: 'SESH-8890', project: 'Wedding Party Classic Event', session: 'Sesi #141', date: '2026-08-25', template: 'Wedding Elegant', url: 'https://images.unsplash.com/photo-1519741497674-611481863552?q=80&w=600&auto=format&fit=crop' },
+    { id: 'SESH-8889', project: 'Self Studio Cafe Corner', session: 'Sesi #140', date: '2026-08-24', template: 'Retro 90s', url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=600&auto=format&fit=crop' },
+    { id: 'SESH-8888', project: 'Photobox Retail Grand Mall', session: 'Sesi #139', date: '2026-08-24', template: 'Cyberpunk Neon', url: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?q=80&w=600&auto=format&fit=crop' },
+    { id: 'SESH-8887', project: 'Self Studio Cafe Corner', session: 'Sesi #138', date: '2026-08-23', template: 'Retro 90s', url: 'https://images.unsplash.com/photo-1444080748397-f442aa95c3e5?q=80&w=600&auto=format&fit=crop' },
+];
 
 export default function Index() {
-    const [galleryPhotos, setGalleryPhotos] = useState([
-        { id: 'SESH-8891', project: 'Photobox Retail Grand Mall', date: '2026-08-25', session: 'Sesi #142', url: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?q=80&w=600&auto=format&fit=crop', template: 'Cyberpunk Neon' },
-        { id: 'SESH-8890', project: 'Wedding Party Classic Event', date: '2026-08-25', session: 'Sesi #141', url: 'https://images.unsplash.com/photo-1519741497674-611481863552?q=80&w=600&auto=format&fit=crop', template: 'Wedding Elegant' },
-        { id: 'SESH-8889', project: 'Self Studio Cafe Corner', date: '2026-08-24', session: 'Sesi #140', url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=600&auto=format&fit=crop', template: 'Retro 90s' },
-        { id: 'SESH-8888', project: 'Photobox Retail Grand Mall', date: '2026-08-24', session: 'Sesi #139', url: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?q=80&w=600&auto=format&fit=crop', template: 'Cyberpunk Neon' },
-    ]);
+    const { toast } = useToast();
+    const [photos, setPhotos] = useState(initialPhotos);
+    const [search, setSearch] = useState('');
+    const [projectFilter, setProjectFilter] = useState('all');
+    const [selected, setSelected] = useState({});
+    const [preview, setPreview] = useState(null);
+    const [confirm, setConfirm] = useState(null);
 
-    const [showAddEventModal, setShowAddEventModal] = useState(false);
-    const [filterProject, setFilterProject] = useState('all');
+    const projects = ['all', ...new Set(photos.map((p) => p.project))];
+
+    const filtered = useMemo(() => {
+        let rows = [...photos];
+        if (projectFilter !== 'all') rows = rows.filter((r) => r.project === projectFilter);
+        if (search.trim()) {
+            const q = search.toLowerCase();
+            rows = rows.filter((r) => r.id.toLowerCase().includes(q) || r.session.toLowerCase().includes(q));
+        }
+        return rows;
+    }, [photos, search, projectFilter]);
+
+    const selectedIds = Object.keys(selected).filter((k) => selected[k]);
+    const allSelected = filtered.length > 0 && filtered.every((p) => selected[p.id]);
+
+    const toggleAll = () => {
+        if (allSelected) setSelected({});
+        else {
+            const next = {};
+            filtered.forEach((p) => (next[p.id] = true));
+            setSelected(next);
+        }
+    };
+
+    const toggleOne = (id) => setSelected((prev) => ({ ...prev, [id]: !prev[id] }));
+
+    const bulkDelete = () => {
+        setPhotos((prev) => prev.filter((p) => !selected[p.id]));
+        toast({ tone: 'warning', title: 'Foto dihapus', message: `${selectedIds.length} foto telah dihapus.` });
+        setSelected({});
+        setConfirm(null);
+    };
+
+    const projectsForFilter = ['Seluruh proyek', ...projects.filter((p) => p !== 'all')];
 
     return (
-        <AdminLayout title="Galery Foto Event & Sesi Photobooth">
-            <Head title="Galery Sesi - Photobooth Studio" />
+        <AdminLayout title="Galeri">
+            <Head title="Galeri Sesi - Photobooth Studio" />
 
-            {/* Banner Header */}
-            <div className="mb-8 p-6 sm:p-8 rounded-3xl glass-panel border border-slate-800 bg-gradient-to-r from-brand-blue/15 via-brand-dark to-brand-green/15 flex flex-col md:flex-row md:items-center justify-between gap-6 shadow-2xl">
-                <div>
-                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-surface border border-slate-700 text-xs font-bold text-brand-blue mb-3">
-                        <ImageIcon className="w-3.5 h-3.5" />
-                        <span>GALERY SESI FOTO EVENT</span>
+            <PageHeader
+                title="Galeri"
+                description="Koleksi hasil foto sesi & event di seluruh proyek."
+                icon={ImageIcon}
+                actions={
+                    <Button
+                        variant="secondary"
+                        icon={Upload}
+                        onClick={() => toast({ tone: 'info', title: 'Unggah foto', message: 'Fitur unggah akan segera hadir.' })}
+                    >
+                        Unggah
+                    </Button>
+                }
+            />
+
+            {/* Toolbar */}
+            <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                <FilterBar>
+                    <SearchInput
+                        placeholder="Cari ID sesi…"
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        className="w-full lg:w-72"
+                    />
+                    <div className="w-56">
+                        <Select value={projectFilter} onChange={(e) => setProjectFilter(e.target.value)}>
+                            {projectsForFilter.map((p, i) => (
+                                <option key={i} value={p === 'Seluruh proyek' ? 'all' : p}>
+                                    {p}
+                                </option>
+                            ))}
+                        </Select>
                     </div>
-                    <h2 className="text-2xl font-extrabold text-white">
-                        Koleksi Galery Photo Strip
-                    </h2>
-                    <p className="text-slate-300 text-sm mt-1 max-w-xl">
-                        Lihat galeri hasil cetak foto berdasarkan proyek, rentang tanggal, dan sesi event. Tambahkan event baru untuk menyimpan album sesi.
-                    </p>
-                </div>
-
-                <button
-                    onClick={() => setShowAddEventModal(true)}
-                    className="py-3.5 px-6 rounded-2xl bg-brand-blue text-brand-dark font-extrabold text-sm shadow-xl hover:bg-brand-blue-light transition-all flex items-center gap-2.5 shrink-0"
-                >
-                    <Plus className="w-5 h-5" />
-                    <span>+ EVENT BARU</span>
-                </button>
+                </FilterBar>
             </div>
 
-            {/* Galery Photo Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                {galleryPhotos.map((photo) => (
-                    <div key={photo.id} className="glass-panel rounded-3xl border border-slate-800 overflow-hidden glass-panel-hover group">
-                        <div className="relative h-56 bg-slate-900 overflow-hidden">
-                            <img src={photo.url} alt={photo.id} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                            <div className="absolute inset-0 bg-gradient-to-t from-brand-dark via-transparent to-transparent"></div>
-                            
-                            <span className="absolute top-3 left-3 px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-brand-surface/90 text-brand-blue border border-slate-700 backdrop-blur-md">
-                                {photo.id}
-                            </span>
-                        </div>
-
-                        <div className="p-4 space-y-2">
-                            <h4 className="font-bold text-white text-sm truncate">{photo.project}</h4>
-                            <p className="text-[10px] text-slate-400">{photo.date} • {photo.session} • {photo.template}</p>
-
-                            <div className="flex gap-2 pt-2">
-                                <button onClick={() => alert(`Mengunduh photo strip ${photo.id}...`)} className="flex-1 py-2 rounded-xl bg-brand-surface border border-slate-700 hover:border-brand-green hover:text-brand-green text-xs font-bold text-slate-300 flex items-center justify-center gap-1">
-                                    <Download className="w-3.5 h-3.5" />
-                                    <span>Download</span>
-                                </button>
-
-                                <button onClick={() => alert(`Pengiriman cetak photo strip ${photo.id}...`)} className="p-2 rounded-xl bg-brand-surface border border-slate-700 hover:border-brand-blue hover:text-brand-blue text-slate-300">
-                                    <Printer className="w-3.5 h-3.5" />
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                ))}
-            </div>
-
-            {/* Modal + Event Baru (Tambah Foto) */}
-            {showAddEventModal && (
-                <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
-                    <div className="glass-panel p-6 sm:p-8 rounded-3xl border border-brand-blue/50 max-w-md w-full shadow-2xl relative">
-                        <div className="flex items-center justify-between mb-4">
-                            <h3 className="text-xl font-extrabold text-white">+ Event Baru (Tambah Foto)</h3>
-                            <button onClick={() => setShowAddEventModal(false)} className="text-slate-400 hover:text-white">
-                                <X className="w-5 h-5" />
-                            </button>
-                        </div>
-
-                        <form onSubmit={(e) => { e.preventDefault(); alert('Event baru berhasil ditambahkan!'); setShowAddEventModal(false); }} className="space-y-4">
-                            <div>
-                                <label className="block text-xs font-bold text-slate-300 uppercase mb-2">1. Pilih Proyek</label>
-                                <select className="w-full px-4 py-3 bg-brand-dark border border-slate-700 rounded-xl text-sm text-white focus:outline-none">
-                                    <option>Photobox Retail Grand Mall</option>
-                                    <option>Wedding Party Classic Event</option>
-                                    <option>Self Studio Cafe Corner</option>
-                                </select>
-                            </div>
-
-                            <div>
-                                <label className="block text-xs font-bold text-slate-300 uppercase mb-2">2. Pilih Rentang Tanggal</label>
-                                <input type="date" defaultValue="2026-08-25" className="w-full px-4 py-3 bg-brand-dark border border-slate-700 rounded-xl text-sm text-white" />
-                            </div>
-
-                            <div>
-                                <label className="block text-xs font-bold text-slate-300 uppercase mb-2">3. Pilih Sesi</label>
-                                <select className="w-full px-4 py-3 bg-brand-dark border border-slate-700 rounded-xl text-sm text-white focus:outline-none">
-                                    <option>Sesi #142 (Main Hall)</option>
-                                    <option>Sesi #141 (VIP Stage)</option>
-                                    <option>Sesi #140 (Lounge Bar)</option>
-                                </select>
-                            </div>
-
-                            <button type="submit" className="w-full py-3.5 px-4 rounded-xl bg-brand-blue text-brand-dark font-extrabold text-sm shadow-xl">
-                                Tambah Ke Galeri Event
-                            </button>
-                        </form>
+            {/* Bulk toolbar */}
+            {selectedIds.length > 0 && (
+                <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-card border border-brand/30 bg-brand-subtle px-4 py-2.5">
+                    <span className="text-sm font-medium text-brand-dark">
+                        {selectedIds.length} foto dipilih
+                    </span>
+                    <div className="flex items-center gap-2">
+                        <Button
+                            variant="secondary"
+                            size="sm"
+                            icon={Download}
+                            onClick={() => toast({ tone: 'success', title: 'Unduhan dimulai', message: `${selectedIds.length} foto sedang diunduh.` })}
+                        >
+                            Unduh
+                        </Button>
+                        <Button
+                            variant="outline-destructive"
+                            size="sm"
+                            icon={Trash2}
+                            onClick={() => setConfirm({ type: 'bulk' })}
+                        >
+                            Hapus
+                        </Button>
+                        <button
+                            onClick={() => setSelected({})}
+                            className="inline-flex items-center gap-1 rounded-input p-1.5 text-ink-muted hover:text-ink"
+                        >
+                            <X className="h-4 w-4" /> Batal
+                        </button>
                     </div>
                 </div>
             )}
+
+            {filtered.length === 0 ? (
+                <Card>
+                    <EmptyState
+                        icon={ImageIcon}
+                        title="Belum ada foto"
+                        description="Belum ada hasil sesi pada filter ini. Mulai sebuah sesi atau unggah foto."
+                    />
+                </Card>
+            ) : (
+                <>
+                    <div className="mb-2 flex items-center justify-end">
+                        <label className="inline-flex cursor-pointer items-center gap-2 text-sm text-ink-muted">
+                            <input
+                                type="checkbox"
+                                checked={allSelected}
+                                onChange={toggleAll}
+                                className="h-4 w-4 rounded border-edge text-brand focus:ring-brand/40"
+                            />
+                            Pilih semua ({filtered.length})
+                        </label>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+                        {filtered.map((p) => (
+                            <PhotoThumbnail
+                                key={p.id}
+                                src={p.url}
+                                alt={p.id}
+                                aspect="square"
+                                selected={!!selected[p.id]}
+                                onSelect={() => toggleOne(p.id)}
+                                overlay={
+                                    <div className="flex items-center justify-between gap-2">
+                                        <span className="text-[11px] font-medium text-white">{p.id}</span>
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setPreview(p);
+                                            }}
+                                            className="rounded bg-white/20 p-1 text-white hover:bg-white/40"
+                                            title="Lihat detail"
+                                        >
+                                            <ImageIcon className="h-3.5 w-3.5" />
+                                        </button>
+                                    </div>
+                                }
+                            />
+                        ))}
+                    </div>
+                </>
+            )}
+
+            {/* Preview modal */}
+            <Modal
+                open={!!preview}
+                onClose={() => setPreview(null)}
+                maxWidth="2xl"
+                title={preview?.id}
+                description={preview ? `${preview.project} · ${preview.session}` : ''}
+                icon={ImageIcon}
+                footer={
+                    <>
+                        <Button
+                            variant="secondary"
+                            icon={Printer}
+                            onClick={() => toast({ tone: 'success', title: 'Perintah cetak dikirim' })}
+                        >
+                            Cetak
+                        </Button>
+                        <Button icon={Download} onClick={() => toast({ tone: 'success', title: 'Sedang mengunduh' })}>
+                            Unduh
+                        </Button>
+                    </>
+                }
+            >
+                {preview && (
+                    <div className="flex items-center justify-center rounded-card bg-slate-100 p-2">
+                        <img src={preview.url} alt={preview.id} className="max-h-[420px] w-auto rounded-card object-contain" />
+                    </div>
+                )}
+                {preview && (
+                    <div className="mt-4 grid grid-cols-2 gap-4 text-sm sm:grid-cols-3">
+                        <div>
+                            <p className="text-xs text-ink-faint">Proyek</p>
+                            <p className="font-medium text-ink">{preview.project}</p>
+                        </div>
+                        <div>
+                            <p className="text-xs text-ink-faint">Sesi</p>
+                            <p className="font-medium text-ink">{preview.session}</p>
+                        </div>
+                        <div>
+                            <p className="text-xs text-ink-faint">Tanggal</p>
+                            <p className="font-medium text-ink">{preview.date}</p>
+                        </div>
+                        <div>
+                            <p className="text-xs text-ink-faint">Template</p>
+                            <p className="font-medium text-ink">{preview.template}</p>
+                        </div>
+                    </div>
+                )}
+            </Modal>
+
+            <ConfirmDialog
+                open={!!confirm}
+                onClose={() => setConfirm(null)}
+                onConfirm={bulkDelete}
+                title="Hapus foto?"
+                message={
+                    confirm?.type === 'bulk'
+                        ? `${selectedIds.length} foto yang dipilih akan dihapus permanen. Tindakan ini tidak dapat dibatalkan.`
+                        : 'Setiap foto yang dipilih akan dihapus permanen.'
+                }
+                confirmLabel="Hapus"
+            />
         </AdminLayout>
     );
 }

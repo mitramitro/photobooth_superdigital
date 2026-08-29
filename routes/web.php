@@ -4,9 +4,12 @@ use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
-// Public Landing / Redirect to Login
+// Public Landing Page
 Route::get('/', function () {
-    return redirect()->route('login');
+    if (auth()->check()) {
+        return redirect()->route('dashboard');
+    }
+    return Inertia::render('LandingPage/Index');
 });
 
 // Admin Core Routes
@@ -27,6 +30,46 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/devices', function () {
             return Inertia::render('Admin/Devices/Index');
         })->name('devices');
+
+        // Templates (Visual Asset Management)
+        Route::get('/templates', function () {
+            return Inertia::render('Admin/Templates/Index');
+        })->name('templates');
+
+        // Frames (Visual Asset Management)
+        Route::get('/frames', function () {
+            return Inertia::render('Admin/Frames/Index');
+        })->name('frames');
+
+        // Sessions (Photo Session Records)
+        Route::get('/sessions', function () {
+            return Inertia::render('Admin/Sessions/Index');
+        })->name('sessions');
+
+        // Monitoring (Device Health & Alerts)
+        Route::get('/monitoring', function () {
+            return Inertia::render('Admin/Monitoring/Index');
+        })->name('monitoring');
+
+        // Users (User Management)
+        Route::get('/users', function () {
+            return Inertia::render('Admin/Users/Index');
+        })->name('users');
+
+        // Roles & Permissions
+        Route::get('/roles', function () {
+            return Inertia::render('Admin/Roles/Index');
+        })->name('roles');
+
+        // Settings
+        Route::get('/settings', function () {
+            return Inertia::render('Admin/Settings/Index');
+        })->name('settings');
+
+        // API Tokens (Sanctum Mobile Auth)
+        Route::get('/api-tokens', function () {
+            return Inertia::render('Admin/ApiTokens/Index');
+        })->name('api-tokens');
 
         // Live Kiosk Simulator (linked to active device/project)
         Route::get('/kiosk', function () {

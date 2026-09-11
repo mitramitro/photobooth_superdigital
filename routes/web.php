@@ -1,19 +1,25 @@
 <?php
 
 use App\Http\Controllers\ProfileController;
+use App\Support\RoleHome;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
 // Public Landing Page
 Route::get('/', function () {
     if (auth()->check()) {
-        return redirect()->route('dashboard');
+        return redirect(RoleHome::for(auth()->user()));
     }
     return Inertia::render('LandingPage/Index');
 });
 
+// Booth Station (device landing — role: booth)
+Route::get('/booth', function () {
+    return Inertia::render('Photobooth/Station');
+})->middleware(['auth', 'role:booth'])->name('booth.station');
+
 // Admin Core Routes
-Route::middleware(['auth', 'verified'])->group(function () {
+Route::middleware(['auth', 'verified', 'role:admin,super_admin'])->group(function () {
     // Dashboard
     Route::get('/dashboard', function () {
         return Inertia::render('Admin/Dashboard');
@@ -40,11 +46,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/frames', function () {
             return Inertia::render('Admin/Frames/Index');
         })->name('frames');
-
-        // Sessions (Photo Session Records)
-        Route::get('/sessions', function () {
-            return Inertia::render('Admin/Sessions/Index');
-        })->name('sessions');
 
         // Monitoring (Device Health & Alerts)
         Route::get('/monitoring', function () {
@@ -95,6 +96,20 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/wallet', function () {
             return Inertia::render('Admin/Wallet/Index');
         })->name('wallet');
+
+        // Voucher (Promo & Voucher Codes)
+        Route::get('/vouchers', function () {
+            return Inertia::render('Admin/Voucher/Index');
+        })->name('vouchers');
+
+        // Platform (Super Admin — Tenant Monitoring)
+        Route::get('/platform', function () {
+            return Inertia::render('Admin/Platform/Overview');
+        })->name('platform.overview');
+
+        Route::get('/platform/tenants', function () {
+            return Inertia::render('Admin/Platform/Tenants');
+        })->name('platform.tenants');
     });
 
     // Hidden Scalar API Documentation Route (Accessible via URL directly)

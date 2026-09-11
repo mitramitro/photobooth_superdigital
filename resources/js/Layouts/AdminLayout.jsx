@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, usePage } from '@inertiajs/react';
 import {
     LayoutDashboard,
@@ -6,6 +6,7 @@ import {
     Monitor,
     Image as ImageIcon,
     Receipt,
+    Ticket,
     Crown,
     Wallet,
     LogOut,
@@ -14,61 +15,50 @@ import {
     Camera,
     Play,
     Bell,
-    ChevronDown,
-    LayoutTemplate,
-    Shapes,
-    Radio,
     Activity,
-    Users,
-    Shield,
-    Settings,
-    KeyRound,
     ChevronRight,
     User as UserIcon,
+    Globe,
+    Store,
 } from 'lucide-react';
 
 const NAV_GROUPS = [
     {
-        label: 'Workspace',
+        label: 'Main',
         items: [
             { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
             { name: 'Proyek', href: '/admin/projects', icon: FolderKanban },
-            { name: 'Template', href: '/admin/templates', icon: LayoutTemplate },
-            { name: 'Galeri', href: '/admin/gallery', icon: ImageIcon },
-        ],
-    },
-    {
-        label: 'Operasional',
-        items: [
-            { name: 'Sesi Foto', href: '/admin/sessions', icon: Camera },
-            { name: 'Transaksi', href: '/admin/transactions', icon: Receipt },
             { name: 'Perangkat', href: '/admin/devices', icon: Monitor },
-            { name: 'Monitoring', href: '/admin/monitoring', icon: Activity },
-        ],
-    },
-    {
-        label: 'Administrasi',
-        items: [
-            { name: 'Pengguna', href: '/admin/users', icon: Users },
-            { name: 'Roles & Izin', href: '/admin/roles', icon: Shield },
-            { name: 'Pengaturan', href: '/admin/settings', icon: Settings },
-            { name: 'API Tokens', href: '/admin/api-tokens', icon: KeyRound },
+            { name: 'Galeri', href: '/admin/gallery', icon: ImageIcon },
+            { name: 'Voucher', href: '/admin/vouchers', icon: Ticket },
+            { name: 'Transaksi', href: '/admin/transactions', icon: Receipt },
         ],
     },
     {
         label: 'Akun',
         items: [
-            { name: 'Profil', href: '/profile', icon: UserIcon },
+            { name: 'Profile', href: '/profile', icon: UserIcon },
             { name: 'Langganan', href: '/admin/subscription', icon: Crown },
             { name: 'Dompet', href: '/admin/wallet', icon: Wallet },
         ],
     },
 ];
 
+const PLATFORM_GROUP = {
+    label: 'Platform',
+    items: [
+        { name: 'Overview', href: '/admin/platform', icon: Globe },
+        { name: 'Tenants', href: '/admin/platform/tenants', icon: Store },
+    ],
+};
+
 export default function AdminLayout({ children, title = 'Dashboard' }) {
     const { auth } = usePage().props;
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [minimized, setMinimized] = useState(false);
+
+    const role = auth?.user?.role ?? 'admin';
+    const groups = role === 'super_admin' ? [...NAV_GROUPS, PLATFORM_GROUP] : NAV_GROUPS;
 
     const currentUrl = window.location.pathname;
 
@@ -76,6 +66,14 @@ export default function AdminLayout({ children, title = 'Dashboard' }) {
         if (href === '/dashboard') return currentUrl === '/dashboard' || currentUrl === '/';
         return currentUrl === href || currentUrl.startsWith(href + '/');
     };
+
+    useEffect(() => {
+        const onKeyDown = (e) => {
+            if (e.key === 'Escape') setSidebarOpen(false);
+        };
+        window.addEventListener('keydown', onKeyDown);
+        return () => window.removeEventListener('keydown', onKeyDown);
+    }, []);
 
     const NavItem = ({ item }) => {
         const Icon = item.icon;
@@ -85,12 +83,13 @@ export default function AdminLayout({ children, title = 'Dashboard' }) {
                 href={item.href}
                 onClick={() => setSidebarOpen(false)}
                 title={minimized ? item.name : undefined}
-                className={`group relative flex items-center gap-2.5 rounded-input px-3 py-2 text-sm font-medium transition-colors duration-150 ${
+                aria-current={active ? 'page' : undefined}
+                className={`group relative flex items-center gap-2.5 rounded-input px-3 py-2 text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 ${
                     minimized ? 'lg:justify-center' : 'justify-start'
                 } ${
                     active
                         ? 'bg-brand-subtle text-brand-dark font-semibold'
-                        : 'text-ink-muted hover:bg-slate-100 hover:text-ink'
+                        : 'text-ink-muted hover:bg-slate-100 hover:text-ink active:bg-brand-subtle/50'
                 }`}
             >
                 {active && (
@@ -137,7 +136,7 @@ export default function AdminLayout({ children, title = 'Dashboard' }) {
                     </Link>
                     <button
                         onClick={() => setSidebarOpen(false)}
-                        className="rounded p-1 text-ink-faint hover:bg-slate-100 lg:hidden"
+                        className="rounded p-1 text-ink-faint hover:bg-slate-100 lg:hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
                         aria-label="Tutup menu"
                     >
                         <X className="h-4 w-4" />
@@ -147,7 +146,7 @@ export default function AdminLayout({ children, title = 'Dashboard' }) {
                 {/* Navigation */}
                 <nav className={`flex-1 overflow-y-auto ${minimized ? 'lg:px-2' : 'px-3'} py-4`}>
                     <div className="space-y-5">
-                        {NAV_GROUPS.map((group) => (
+                        {groups.map((group) => (
                             <div key={group.label}>
                                 <p
                                     className={`px-3 pb-1.5 text-[10px] font-semibold uppercase tracking-wider text-ink-faint ${
@@ -197,8 +196,9 @@ export default function AdminLayout({ children, title = 'Dashboard' }) {
                                 href={route('logout')}
                                 method="post"
                                 as="button"
-                                className="rounded p-1.5 text-ink-faint hover:bg-danger-subtle hover:text-danger"
+                                className="rounded p-1.5 text-ink-faint hover:bg-danger-subtle hover:text-danger focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
                                 title="Keluar"
+                                aria-label="Keluar"
                             >
                                 <LogOut className="h-4 w-4" />
                             </Link>
@@ -220,7 +220,7 @@ export default function AdminLayout({ children, title = 'Dashboard' }) {
                                     setSidebarOpen(true);
                                 }
                             }}
-                            className="rounded-input p-2 text-ink-muted hover:bg-slate-100 hover:text-ink"
+                            className="rounded-input p-2 text-ink-muted hover:bg-slate-100 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
                             aria-label="Buka menu"
                         >
                             <Menu className="h-5 w-5" />
@@ -239,7 +239,7 @@ export default function AdminLayout({ children, title = 'Dashboard' }) {
                     <div className="flex items-center gap-2">
                         <Link
                             href="/admin/kiosk"
-                            className="inline-flex items-center gap-1.5 rounded-input bg-brand px-3.5 py-2 text-xs font-semibold text-white shadow-card transition-colors hover:bg-brand-dark"
+                            className="inline-flex items-center gap-1.5 rounded-input bg-brand px-3.5 py-2 text-xs font-semibold text-white shadow-card transition-colors hover:bg-brand-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
                         >
                             <Play className="h-3.5 w-3.5 fill-white" />
                             Kiosk Live
@@ -247,15 +247,17 @@ export default function AdminLayout({ children, title = 'Dashboard' }) {
 
                         <Link
                             href="/admin/monitoring"
-                            className="inline-flex h-9 w-9 items-center justify-center rounded-input border border-edge bg-white text-ink-muted transition-colors hover:bg-slate-50 hover:text-ink"
+                            className="inline-flex h-9 w-9 items-center justify-center rounded-input border border-edge bg-white text-ink-muted transition-colors hover:bg-slate-50 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
                             title="Monitoring"
+                            aria-label="Monitoring"
                         >
                             <Activity className="h-4 w-4" />
                         </Link>
 
                         <button
-                            className="relative inline-flex h-9 w-9 items-center justify-center rounded-input border border-edge bg-white text-ink-muted transition-colors hover:bg-slate-50 hover:text-ink"
+                            className="relative inline-flex h-9 w-9 items-center justify-center rounded-input border border-edge bg-white text-ink-muted transition-colors hover:bg-slate-50 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
                             title="Notifikasi"
+                            aria-label="Notifikasi (3)"
                         >
                             <Bell className="h-4 w-4" />
                             <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-danger ring-2 ring-white" />
@@ -263,7 +265,8 @@ export default function AdminLayout({ children, title = 'Dashboard' }) {
 
                         <Link
                             href="/profile"
-                            className="ml-1 inline-flex h-9 w-9 items-center justify-center rounded-full bg-brand-subtle text-sm font-bold text-brand transition-colors hover:bg-brand-lighter"
+                            className="ml-1 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-subtle text-sm font-bold text-brand transition-colors hover:bg-brand-lighter focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
+                            aria-label="Profile"
                         >
                             {auth?.user?.name ? auth.user.name.charAt(0).toUpperCase() : 'A'}
                         </Link>

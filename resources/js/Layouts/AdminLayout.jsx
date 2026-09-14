@@ -21,6 +21,7 @@ import {
     Globe,
     Store,
 } from 'lucide-react';
+import FlashMessages from '@/Components/FlashMessages';
 
 const NAV_GROUPS = [
     {
@@ -105,6 +106,8 @@ export default function AdminLayout({ children, title = 'Dashboard' }) {
 
     return (
         <div className="min-h-screen bg-canvas text-ink flex">
+            <FlashMessages />
+
             {/* Mobile overlay */}
             {sidebarOpen && (
                 <div

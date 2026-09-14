@@ -1,5 +1,9 @@
 <?php
 
+use App\Enums\UserRole;
+use App\Http\Controllers\Admin\DeviceController;
+use App\Http\Controllers\Admin\ProjectController;
+use App\Http\Controllers\Admin\ProjectExperienceController;
 use App\Http\Controllers\ProfileController;
 use App\Support\RoleHome;
 use Illuminate\Support\Facades\Route;
@@ -21,21 +25,38 @@ Route::get('/booth', function () {
 // Admin Core Routes
 Route::middleware(['auth', 'verified', 'role:admin,super_admin'])->group(function () {
     // Dashboard
-    Route::get('/dashboard', function () {
-        return Inertia::render('Admin/Dashboard');
+    Route::get('/dashboard', function (\Illuminate\Http\Request $request) {
+        $projects = \App\Models\Project::query()
+            ->when(
+                $request->user()->role !== UserRole::SUPER_ADMIN,
+                fn ($query) => $query->where('user_id', $request->user()->id),
+            );
+
+        return Inertia::render('Admin/Dashboard', [
+            'totalProjects' => $projects->count(),
+            'activeProjects' => (clone $projects)->where('status', 'active')->count(),
+        ]);
     })->name('dashboard');
 
     // Admin Features
     Route::prefix('admin')->name('admin.')->group(function () {
-        // Proyek (Project Management)
-        Route::get('/projects', function () {
-            return Inertia::render('Admin/Projects/Index');
-        })->name('projects');
+        // Proyek (Project Domain)
+        Route::get('/projects/create', [ProjectController::class, 'create'])->name('projects.create');
+        Route::post('/projects', [ProjectController::class, 'store'])->name('projects.store');
+        Route::get('/projects/{project}/edit', [ProjectController::class, 'edit'])->name('projects.edit');
+        Route::put('/projects/{project}', [ProjectController::class, 'update'])->name('projects.update');
+        Route::delete('/projects/{project}', [ProjectController::class, 'destroy'])->name('projects.destroy');
+        Route::patch('/projects/{project}/experience', [ProjectExperienceController::class, 'update'])->name('projects.experience.update');
+        Route::get('/projects/{project}/experience', [ProjectExperienceController::class, 'show'])->name('projects.experience');
+        Route::get('/projects/{project}', [ProjectController::class, 'show'])->name('projects.show');
+        Route::get('/projects', [ProjectController::class, 'index'])->name('projects.index');
 
-        // Perangkat (Devices & Kiosk Monitoring)
-        Route::get('/devices', function () {
-            return Inertia::render('Admin/Devices/Index');
-        })->name('devices');
+        // Perangkat (Devices — real domain)
+        Route::post('/devices', [DeviceController::class, 'store'])->name('devices.store');
+        Route::put('/devices/{device}', [DeviceController::class, 'update'])->name('devices.update');
+        Route::post('/devices/{device}/revoke', [DeviceController::class, 'revoke'])->name('devices.revoke');
+        Route::get('/devices/{device}', [DeviceController::class, 'show'])->name('devices.show');
+        Route::get('/devices', [DeviceController::class, 'index'])->name('devices.index');
 
         // Templates (Visual Asset Management)
         Route::get('/templates', function () {

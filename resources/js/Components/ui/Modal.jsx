@@ -22,30 +22,19 @@ export default function Modal({
     };
 
     return (
-        <Transition show={open} leave="duration-200">
+        <Transition show={open} leave="transition ease-in duration-150">
             <Dialog
                 as="div"
-                className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-4 sm:p-6"
+                className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/20 p-4 sm:p-6"
                 onClose={() => closeable && onClose()}
             >
                 <TransitionChild
-                    enter="ease-out duration-150"
+                    enter="transition ease-out duration-200"
                     enterFrom="opacity-0"
                     enterTo="opacity-100"
-                    leave="ease-in duration-150"
+                    leave="transition ease-in duration-150"
                     leaveFrom="opacity-100"
                     leaveTo="opacity-0"
-                >
-                    <div className="fixed inset-0 bg-ink/40 backdrop-blur-[2px]" />
-                </TransitionChild>
-
-                <TransitionChild
-                    enter="ease-out duration-200"
-                    enterFrom="opacity-0 translate-y-4 scale-95"
-                    enterTo="opacity-100 translate-y-0 scale-100"
-                    leave="ease-in duration-150"
-                    leaveFrom="opacity-100 translate-y-0 scale-100"
-                    leaveTo="opacity-0 translate-y-4 scale-95"
                 >
                     <DialogPanel
                         className={`my-6 w-full overflow-hidden rounded-modal bg-white shadow-pop sm:mx-auto ${widths[maxWidth]}`}

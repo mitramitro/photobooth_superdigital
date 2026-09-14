@@ -7,6 +7,7 @@ import {
     Printer,
     Monitor,
     CreditCard,
+    FolderKanban,
     ArrowRight,
     RefreshCw,
 } from 'lucide-react';
@@ -38,13 +39,13 @@ const boothStatus = [
     { name: 'Booth #04 Outdoor Deck', template: 'Summer Glow', status: 'Online', icon: Monitor },
 ];
 
-export default function Dashboard() {
+export default function Dashboard({ totalProjects = 0, activeProjects = 0 }) {
     const { toast } = useToast();
 
     const stats = [
         { label: 'Total Sesi Foto', value: '1.428', delta: '+18,4%', deltaUp: true, tone: 'blue', icon: Camera },
         { label: 'Foto Dicetak', value: '3.890', hint: '99,4% printer ready', tone: 'green', icon: Printer },
-        { label: 'Photobooth Aktif', value: '4', hint: '2 lokasi', tone: 'blue', icon: Monitor },
+        { label: 'Total Proyek', value: String(totalProjects), hint: `${activeProjects} proyek aktif`, tone: 'blue', icon: FolderKanban },
         { label: 'Transaksi Hari Ini', value: 'Rp 1.485.000', delta: '+9,2%', deltaUp: true, tone: 'green', icon: CreditCard },
     ];
 
@@ -108,7 +109,7 @@ export default function Dashboard() {
                             description="Aktivitas sesi terbaru di seluruh perangkat"
                             icon={Camera}
                             actions={
-                                <Link href="/admin/sessions" className="inline-flex items-center gap-1 text-sm font-medium text-brand hover:text-brand-dark">
+                                <Link href="/admin/transactions" className="inline-flex items-center gap-1 text-sm font-medium text-brand hover:text-brand-dark">
                                     Lihat semua <ArrowRight className="h-4 w-4" />
                                 </Link>
                             }

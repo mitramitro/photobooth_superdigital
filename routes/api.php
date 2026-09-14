@@ -1,5 +1,8 @@
 <?php
 
+use App\Http\Controllers\Api\Device\ConfigController;
+use App\Http\Controllers\Api\Device\HeartbeatController;
+use App\Http\Controllers\Api\Device\PairController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -58,5 +61,13 @@ Route::prefix('v1')->group(function () {
             'status' => 'success',
             'user' => $request->user(),
         ]);
+    });
+
+    // ── Device APIs (Phase 4 — real) ──────────────────────────────────
+    Route::post('/device/pair', PairController::class);
+
+    Route::middleware('auth:sanctum')->group(function () {
+        Route::post('/device/heartbeat', HeartbeatController::class);
+        Route::get('/device/config', ConfigController::class);
     });
 });

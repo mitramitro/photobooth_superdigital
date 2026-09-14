@@ -161,6 +161,168 @@
         }
       }
     },
+    "/device/pair": {
+      "post": {
+        "summary": "Pasangkan Perangkat Booth & Terbitkan Device Token",
+        "description": "Perangkat booth menggunakan kode pairing (PB-XXXX-XXXX) untuk pairing dan menerima Sanctum token yang diikat ke perangkat. Token hanya memiliki ability device:heartbeat dan device:config. Status: 422 kode/platfom salah, 403 perangkat dicabut, 409 sudah dipairing.",
+        "operationId": "pairDevice",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "device_code": {
+                    "type": "string",
+                    "example": "PB-K2M7-9QXW"
+                  },
+                  "platform": {
+                    "type": "string",
+                    "enum": ["android", "windows"],
+                    "example": "android"
+                  },
+                  "app_version": {
+                    "type": "string",
+                    "example": "1.2.0"
+                  },
+                  "device_identifier": {
+                    "type": "string",
+                    "example": "SN-ABC123"
+                  }
+                },
+                "required": ["device_code", "platform"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Pairing Berhasil",
+            "content": {
+              "application/json": {
+                "example": {
+                  "message": "Pairing berhasil.",
+                  "token": "3|device_token_xyz",
+                  "token_type": "Bearer",
+                  "device": {
+                    "id": 1,
+                    "name": "Mall Android Booth",
+                    "platform": "android",
+                    "pair_status": "paired",
+                    "status": "online",
+                    "last_seen_at": "2026-09-12T04:00:00+00:00",
+                    "app_version": "1.2.0",
+                    "project": null
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/device/heartbeat": {
+      "post": {
+        "summary": "Heartbeat Perangkat (Presence & Versi)",
+        "description": "Dikirim berkala oleh perangkat untuk memperbarui last_seen_at/status online dan versi aplikasi. Tidak menulis ke riwayat event kecuali versi aplikasi berubah.",
+        "operationId": "deviceHeartbeat",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "app_version": {
+                    "type": "string",
+                    "example": "1.3.1"
+                  },
+                  "device_identifier": {
+                    "type": "string",
+                    "example": "SN-ABC123"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Heartbeat Diterima",
+            "content": {
+              "application/json": {
+                "example": {
+                  "device": {
+                    "id": 1,
+                    "name": "Mall Android Booth",
+                    "platform": "android",
+                    "pair_status": "paired",
+                    "status": "online",
+                    "app_version": "1.3.1",
+                    "project": {
+                      "id": 2,
+                      "name": "Mall Photobox"
+                    }
+                  },
+                  "server_time": "2026-09-12T04:05:00+00:00"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/device/config": {
+      "get": {
+        "summary": "Konfigurasi Runtime Perangkat",
+        "description": "Mengambil proyek aktif beserta pengalaman foto (timer, layout, frame, filter, brightness) untuk perangkat. runnable=false saat proyek draf/nonaktif atau belum ditugaskan.",
+        "operationId": "deviceConfig",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Konfigurasi Berhasil Diambil",
+            "content": {
+              "application/json": {
+                "example": {
+                  "device": {
+                    "id": 1,
+                    "name": "Mall Android Booth",
+                    "platform": "android"
+                  },
+                  "project": {
+                    "id": 2,
+                    "name": "Mall Photobox",
+                    "type": "retail",
+                    "orientation": "portrait",
+                    "welcome_image_url": "http://localhost:8000/storage/welcome/mall.jpg",
+                    "status": "active",
+                    "available": true
+                  },
+                  "experience": {
+                    "timer_seconds": 12,
+                    "layout": "grid_4",
+                    "frame": "classic",
+                    "filter": "bw",
+                    "brightness": 15
+                  },
+                  "runnable": true,
+                  "server_time": "2026-09-12T04:05:00+00:00"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/user": {
       "get": {
         "summary": "Profil Pengguna Terautentikasi",

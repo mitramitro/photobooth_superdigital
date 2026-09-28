@@ -244,7 +244,7 @@ class VoucherApiTest extends TestCase
 
         $stored = PersonalAccessToken::firstOrFail();
 
-        $this->assertSame(['device:heartbeat', 'device:config', 'device:voucher'], $stored->abilities);
+        $this->assertSame(['device:heartbeat', 'device:config', 'device:voucher', 'device:session'], $stored->abilities);
     }
 
     public function test_valid_response_does_not_leak_internal_fields(): void
@@ -302,5 +302,32 @@ class VoucherApiTest extends TestCase
             'device_id' => $device->id,
             'event' => 'voucher_validated',
         ]);
+
+        // Phase 6 regression: validation must not start a booth session.
+        $this->assertDatabaseCount('booth_sessions', 0);
+    }
+
+    public function test_validate_never_creates_a_booth_session(): void
+    {
+        $voucher = Voucher::factory()->active()->create([
+            'code' => 'VCR-NNNN-0005',
+            'max_uses' => 2,
+        ]);
+
+        ['device' => $device, 'token' => $token] = $this->pairedDevice($voucher->project);
+
+        for ($i = 0; $i < 5; $i++) {
+            $this->withToken($token)
+                ->postJson('/api/v1/voucher/validate', ['code' => 'VCR-NNNN-0005'])
+                ->assertOk()
+                ->assertJsonPath('valid', true);
+        }
+
+        $voucher->refresh();
+
+        $this->assertSame(0, $voucher->used_count);
+        $this->assertNull($voucher->last_used_at);
+        $this->assertSame(2, $voucher->remainingUses());
+        $this->assertDatabaseCount('booth_sessions', 0);
     }
 }

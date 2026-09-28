@@ -164,7 +164,7 @@
     "/device/pair": {
       "post": {
         "summary": "Pasangkan Perangkat Booth & Terbitkan Device Token",
-        "description": "Perangkat booth menggunakan kode pairing (PB-XXXX-XXXX) untuk pairing dan menerima Sanctum token yang diikat ke perangkat. Token memiliki ability device:heartbeat, device:config, dan device:voucher. Status: 422 kode/platfom salah, 403 perangkat dicabut, 409 sudah dipairing.",
+        "description": "Perangkat booth menggunakan kode pairing (PB-XXXX-XXXX) untuk pairing dan menerima Sanctum token yang diikat ke perangkat. Token memiliki ability device:heartbeat, device:config, device:voucher, dan device:session. Token yang terbit sebelum Phase 6 tidak memiliki device:session dan harus dicabut lalu di-pair ulang. Status: 422 kode/platfom salah, 403 perangkat dicabut, 409 sudah dipairing.",
         "operationId": "pairDevice",
         "requestBody": {
           "required": true,
@@ -326,7 +326,7 @@
     "/voucher/validate": {
       "post": {
         "summary": "Validasi Voucher Perangkat Booth",
-        "description": "Memvalidasi kode voucher terhadap perangkat yang sedang assigned ke sebuah proyek. Endpoint ini HANYA mengecek aturan bisnis dan TIDAK melakukan redeem: used_count tidak bertambah, last_used_at tidak diubah, dan tidak ada booth session yang dibuat. Business invalidity dikembalikan dengan HTTP 200 dan reason machine-readable; kegagalan autentikasi tetap 401/403.",
+        "description": "Memvalidasi kode voucher terhadap perangkat yang sedang assigned ke sebuah proyek. Endpoint ini HANYA mengecek aturan bisnis dan TIDAK melakukan redeem: used_count tidak bertambah, last_used_at tidak diubah, dan tidak ada booth session yang dibuat. Untuk memakai voucher, panggil POST /session/start. Business invalidity dikembalikan dengan HTTP 200 dan reason machine-readable; kegagalan autentikasi tetap 401/403.",
         "operationId": "validateVoucher",
         "security": [
           {
@@ -399,6 +399,274 @@
           },
           "422": {
             "description": "Field code wajib diisi"
+          }
+        }
+      }
+    },
+    "/session/start": {
+      "post": {
+        "summary": "Mulai Sesi Booth & Redeem Voucher",
+        "description": "Satu-satunya endpoint yang koneksi pemakaian voucher. Membutuhkan ability device:session. Operasi berjalan dalam SATU transaksi dengan urutan lock: baris device dikunci lebih dulu untuk menserialisasi permintaan dari booth yang sama, lalu pemeriksaan sesi aktif dilakukan, baru baris voucher dikunci dan diredeem. Jika permintaan kedua datang saat sesi masih aktif, alasan active_session_exists dikembalikan BESERTA sesi yang sedang berjalan dan pemakaian voucher TIDAK bertambah. Pembatalan sesi TIDAK mengembalikan pemakaian voucher. Kegagalan bisnis dikembalikan dengan HTTP 200/201 dan reason machine-readable; kegagalan autentikasi tetap 401/403.",
+        "operationId": "startSession",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "voucher_code": {
+                    "type": "string",
+                    "example": "VCR-7K4F-92QM",
+                    "description": "Kode voucher, dinormalisasi otomatis (trim + uppercase) di sisi server. Wajib untuk mode self_service."
+                  },
+                  "mode": {
+                    "type": "string",
+                    "enum": ["self_service", "operator"],
+                    "default": "self_service",
+                    "description": "self_service (default). Mode operator belum didukung pada MVP dan akan ditolak dengan unsupported_mode."
+                  }
+                },
+                "required": ["voucher_code"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Sesi berhasil dimulai dan satu pemakaian voucher telah dikurangi",
+            "content": {
+              "application/json": {
+                "example": {
+                  "valid": true,
+                  "session": {
+                    "id": 1,
+                    "code": "SES-K2M7-9QXW",
+                    "status": "active",
+                    "mode": "self_service",
+                    "started_at": "2026-09-13T04:10:00+00:00"
+                  },
+                  "project": {
+                    "id": 2,
+                    "name": "Mall Photobox",
+                    "type": "retail",
+                    "orientation": "portrait",
+                    "welcome_image_url": "http://localhost:8000/storage/welcome/mall.jpg",
+                    "status": "active",
+                    "available": true
+                  },
+                  "experience": {
+                    "timer_seconds": 5,
+                    "layout": "strip_4",
+                    "frame": "film_strip",
+                    "filter": "original",
+                    "brightness": 0
+                  },
+                  "voucher": {
+                    "remaining_uses": 0
+                  }
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Kegagalan bisnis (reason machine-readable)",
+            "content": {
+              "application/json": {
+                "examples": {
+                  "activeSessionExists": {
+                    "summary": "Perangkat masih memiliki sesi aktif",
+                    "value": {
+                      "valid": false,
+                      "reason": "active_session_exists",
+                      "session": {
+                        "id": 1,
+                        "code": "SES-K2M7-9QXW",
+                        "status": "active",
+                        "mode": "self_service",
+                        "started_at": "2026-09-13T04:10:00+00:00"
+                      }
+                    }
+                  },
+                  "unsupportedMode": {
+                    "summary": "Mode operator belum didukung",
+                    "value": {
+                      "valid": false,
+                      "reason": "unsupported_mode",
+                      "session": null
+                    }
+                  },
+                  "voucherInvalid": {
+                    "summary": "Voucher tidak valid untuk proyek perangkat",
+                    "value": {
+                      "valid": false,
+                      "reason": "project_mismatch",
+                      "session": null
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Token tidak ada atau bukan token perangkat"
+          },
+          "403": {
+            "description": "Token tidak memiliki ability device:session atau perangkat telah dicabut"
+          },
+          "404": {
+            "description": "Sesi tidak ditemukan"
+          },
+          "422": {
+            "description": "Field voucher_code wajib diisi untuk mode self_service"
+          }
+        }
+      }
+    },
+    "/session/current": {
+      "get": {
+        "summary": "Sesi Booth yang Sedang Berjalan (Reload Recovery)",
+        "description": "Read-only dan idempotent, aman dipanggil booth saat reload atau setelah crash. Hanya mengembalikan sesi milik perangkat pemanggil dengan status active. Jika tidak ada, session bernilai null. Tidak ada efek samping dan tidak ada voucher yang dikunci.",
+        "operationId": "currentSession",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Sesi berhasil diambil, atau null bila tidak ada",
+            "content": {
+              "application/json": {
+                "examples": {
+                  "active": {
+                    "summary": "Masih ada sesi aktif",
+                    "value": {
+                      "valid": true,
+                      "session": {
+                        "id": 1,
+                        "code": "SES-K2M7-9QXW",
+                        "status": "active",
+                        "mode": "self_service",
+                        "started_at": "2026-09-13T04:10:00+00:00"
+                      },
+                      "project": {
+                        "id": 2,
+                        "name": "Mall Photobox",
+                        "type": "retail",
+                        "orientation": "portrait",
+                        "welcome_image_url": "http://localhost:8000/storage/welcome/mall.jpg",
+                        "status": "active",
+                        "available": true
+                      },
+                      "experience": {
+                        "timer_seconds": 5,
+                        "layout": "strip_4",
+                        "frame": "film_strip",
+                        "filter": "original",
+                        "brightness": 0
+                      },
+                      "voucher": null
+                    }
+                  },
+                  "none": {
+                    "summary": "Tidak ada sesi aktif",
+                    "value": {
+                      "valid": true,
+                      "session": null,
+                      "project": null,
+                      "experience": null,
+                      "voucher": null
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Token tidak ada atau bukan token perangkat"
+          },
+          "403": {
+            "description": "Token tidak memiliki ability device:session atau perangkat telah dicabut"
+          }
+        }
+      }
+    },
+    "/session/{session}/cancel": {
+      "post": {
+        "summary": "Batalkan Sesi Booth",
+        "description": "Hanya perangkat pemilik sesi yang dapat membatalkan (diperiksa ulang di server terhadap device_id, bukan dipercaya dari id di route; perangkat lain mendapat 404). Memakai voucher TIDAK dikembalikan: voucher sudah berhasil memulai sesi dan kebijakan refund adalah keputusan fase berikutnya. Membatalkan sesi yang sudah dibatalkan aman dan idempotent, sedangkan sesi yang sudah completed tidak dikonversi kembali menjadi cancelled.",
+        "operationId": "cancelSession",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "session",
+            "in": "path",
+            "required": true,
+            "description": "ID numerik booth session",
+            "schema": {
+              "type": "integer",
+              "example": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Sesi dibatalkan, atau sudah dalam status final (idempotent)",
+            "content": {
+              "application/json": {
+                "examples": {
+                  "cancelled": {
+                    "summary": "Sesi dibatalkan",
+                    "value": {
+                      "valid": true,
+                      "session": {
+                        "id": 1,
+                        "code": "SES-K2M7-9QXW",
+                        "status": "cancelled",
+                        "mode": "self_service",
+                        "started_at": "2026-09-13T04:10:00+00:00"
+                      },
+                      "cancelled": true,
+                      "reason": null
+                    }
+                  },
+                  "alreadyCancelled": {
+                    "summary": "Sesi sudah dibatalkan sebelumnya (no-op)",
+                    "value": {
+                      "valid": true,
+                      "session": {
+                        "id": 1,
+                        "code": "SES-K2M7-9QXW",
+                        "status": "cancelled",
+                        "mode": "self_service",
+                        "started_at": "2026-09-13T04:10:00+00:00"
+                      },
+                      "cancelled": false,
+                      "reason": "already_cancelled"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Token tidak ada atau bukan token perangkat"
+          },
+          "403": {
+            "description": "Token tidak memiliki ability device:session atau perangkat telah dicabut"
+          },
+          "404": {
+            "description": "Sesi tidak ditemukan atau bukan milik perangkat pemanggil"
           }
         }
       }

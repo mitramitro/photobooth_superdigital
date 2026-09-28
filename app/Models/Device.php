@@ -67,6 +67,11 @@ class Device extends Authenticatable
         return $this->hasMany(DeviceEvent::class)->latest();
     }
 
+    public function boothSessions(): HasMany
+    {
+        return $this->hasMany(BoothSession::class);
+    }
+
     /**
      * Whether the device has been revoked by its owner.
      */

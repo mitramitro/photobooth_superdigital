@@ -46,6 +46,11 @@ class Project extends Model
         return $this->hasMany(Voucher::class);
     }
 
+    public function boothSessions(): HasMany
+    {
+        return $this->hasMany(BoothSession::class);
+    }
+
     public function experienceSetting(): HasOne
     {
         return $this->hasOne(ProjectExperienceSetting::class);

@@ -24,23 +24,9 @@ class DeviceConfigResource
                 'name' => $device->name,
                 'platform' => $device->platform->value,
             ],
-            'project' => $project ? [
-                'id' => $project->id,
-                'name' => $project->name,
-                'type' => $project->type->value,
-                'orientation' => $project->orientation->value,
-                'welcome_image_url' => $project->welcome_image_url,
-                'status' => $project->status->value,
-                'available' => $projectAvailable,
-            ] : null,
-            'experience' => $projectAvailable && $project->experienceSetting
-                ? [
-                    'timer_seconds' => $project->experienceSetting->timer_seconds,
-                    'layout' => $project->experienceSetting->layout->value,
-                    'frame' => $project->experienceSetting->frame->value,
-                    'filter' => $project->experienceSetting->filter->value,
-                    'brightness' => $project->experienceSetting->brightness,
-                ]
+            'project' => $project ? ProjectContextResource::project($project) : null,
+            'experience' => $project && $projectAvailable && $project->experienceSetting
+                ? ProjectContextResource::experience($project)
                 : null,
             'runnable' => $projectAvailable,
             'server_time' => now()->toIso8601String(),

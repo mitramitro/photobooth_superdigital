@@ -6,6 +6,8 @@ use App\Enums\ProjectOrientation;
 use App\Enums\ProjectStatus;
 use App\Enums\ProjectType;
 use App\Enums\UserRole;
+use App\Models\BoothSession;
+use App\Models\Device;
 use App\Models\Project;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -298,6 +300,24 @@ class ProjectTest extends TestCase
             ->assertRedirect(route('admin.projects.index'));
 
         $this->assertDatabaseMissing('projects', ['id' => $project->id]);
+    }
+
+    public function test_project_with_booth_sessions_cannot_be_deleted(): void
+    {
+        $super = $this->superAdmin();
+        $project = Project::factory()->create(['user_id' => $this->admin()->id]);
+
+        BoothSession::factory()->create([
+            'project_id' => $project->id,
+            'device_id' => Device::factory()->create(['project_id' => $project->id])->id,
+        ]);
+
+        $this->actingAs($super)
+            ->delete(route('admin.projects.destroy', $project))
+            ->assertRedirect(route('admin.projects.index'));
+
+        $this->assertDatabaseHas('projects', ['id' => $project->id]);
+        $this->assertDatabaseHas('booth_sessions', ['project_id' => $project->id]);
     }
 
     public function test_replacing_welcome_image_deletes_previous_file(): void

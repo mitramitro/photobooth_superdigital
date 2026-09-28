@@ -144,6 +144,19 @@ class ProjectController extends Controller
     {
         $this->authorize('delete', $project);
 
+        // Booth sessions are history and their foreign key is RESTRICT, so a
+        // project with session history cannot be hard deleted. Archive it by
+        // setting the status to inactive instead.
+        if ($project->boothSessions()->exists()) {
+            session()->flash('toast', [
+                'tone' => 'warning',
+                'title' => 'Proyek tidak dapat dihapus',
+                'message' => 'Proyek "'.$project->name.'" memiliki riwayat sesi booth dan tidak dapat dihapus. Nonaktifkan proyek sebagai gantinya.',
+            ]);
+
+            return redirect(route('admin.projects.index'));
+        }
+
         $this->deleteWelcomeImage($project);
 
         $project->delete();

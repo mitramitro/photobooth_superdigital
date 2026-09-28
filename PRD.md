@@ -445,8 +445,11 @@ MIDTRANS_IS_PRODUCTION=false
 |---|---|---|---|
 | 1 | Fondasi role (enum `UserRole`), routing aware-role, admin nav disederhanakan | ✅ Selesai | `a10be15` |
 | 2–4 | Domain `Project` + `ProjectExperienceSetting`, `Device` management + pairing API + `DeviceCode`, enums Project/Device, policies, middleware role, openapi, seeder | ✅ Selesai | `e79cc38` |
-| 5 | **Voucher Management + Validation API** | ✅ Selesai (test hijau, build ok) — **BELUM di-commit** | — |
-| 6 | Booth session touchpoint (Welcome → Voucher Input → Validate → Atomic Redeem → Booth Session → Countdown → Capture → Result) + printer, gallery, transaction, Midtrans, WebSocket/MQTT, AI, bulk | ⏳ Belum | — |
+| 5 | **Voucher Management + Validation API** | ✅ Selesai | `5cf627b` |
+| 6 | **Booth Session + Atomic Voucher Redeem** (Welcome → Voucher Input → Validate → Atomic Redeem → Booth Session) | ✅ Selesai (test hijau, build ok) | — |
+| 7 | Countdown → Capture → Result + printer, gallery, transaction, Midtrans, WebSocket/MQTT, AI, bulk | ⏳ Belum | — |
+
+> Catatan scope Phase 6: hanya touchpoint **sampai session terbentuk** (start/current/cancel). Countdown, capture, dan result **dipindah ke Phase 7** agar MVP backend tetap terukur. Tidak ada kamera/upload/gallery/payment/AI/bulk/operator dashboard di fase ini.
 
 ### 13.2 Yang Sudah Dikerjakan — PHASE 5 (Voucher)
 
@@ -455,7 +458,7 @@ Backend:
 - **Enum**: `App\Enums\VoucherStatus` (`active/used/expired/revoked`).
 - **Code gen**: `App\Support\VoucherCode` — format `VCR-XXXX-XXXX`, tanpa karakter konfusabel, `random_bytes`.
 - **Model**: `App\Models\Voucher` + relasi `User hasMany` & `Project hasMany`. Status efektif **dihitung** (bukan kolom) lewat `effectiveStatus()` / `remainingUses()` / `isUsable()` / scope `effectiveStatus`: prioritas `revoked > expired > used > active`; `valid_from` masa depan = reason `not_started`.
-- **Service**: `App\Services\VoucherService` — `generateUniqueCode()`, `effectiveStatus()`, `remainingUses()`, `validate()` (return array; **tidak** mutasi DB). Siap di-extend `redeem()` utk Phase 6 (`DB::transaction` + `lockForUpdate`).
+- **Service**: `App\Services\VoucherService` — `generateUniqueCode()`, `effectiveStatus()`, `remainingUses()`, `validate()` (return array; **tidak** mutasi DB), plus `redeemLockedForDevice()` (ditambahkan di Phase 6).
 - **Policy & Request**: `App\Policies\VoucherPolicy` (admin hanya punya sendiri, super_admin semua, booth 403); `StoreVoucherRequest` (code dari server, bukan frontend), `UpdateVoucherRequest` (max_uses ≥ used_count, project terkunci saat `used_count > 0`, revoked ditolak update).
 - **Controller**: `Admin\VoucherController` — index (search kode/proyek, filter status/proyek, pagination `withQueryString`), store (flash `created_voucher`), show, update, revoke (`revoked_at = now`, bukan delete).
 - **Admin routes**: `admin.vouchers.index|store|show|update|revoke` (`/admin/vouchers...`), route mock lama sudah diganti.
@@ -479,25 +482,73 @@ Frontend (React/Inertia):
 Tests (all pass):
 - `VoucherStatusTest` (11), `VoucherWebTest` (21), `VoucherApiTest` (16, termasuk no-side-effect 5× validate & leak check), `DeviceApiTest` ability diperbarui.
 
-### 13.3 Status Verifikasi Terakhir (✅ semua hijau)
+### 13.3 Yang Sudah Dikerjakan — PHASE 6 (Booth Session + Atomic Redeem)
+
+Backend — DB & domain:
+- **DB**: migration `database/migrations/2026_09_13_000007_create_booth_sessions_table.php` — `booth_sessions`: `session_code` (unique), `device_id` (FK restrict), `project_id` (FK restrict), `voucher_id` (nullable, FK nullOnDelete), `mode`, `status`, `started_at`, `completed_at`, `cancelled_at`; index `[device_id,status]`, `project_id`, `voucher_id`.
+  - ⚠️ `restrictOnDelete` pada device/project dipilih karena `booth_sessions` adalah **riwayat**, bukan data turunan yang boleh ikut terhapus.
+- **Enum**: `App\Enums\BoothSessionMode` (`self_service`/`operator`), `App\Enums\BoothSessionStatus` (`active`/`completed`/`cancelled`/`failed`).
+- **Code gen**: `App\Support\SessionCode` — format `SES-XXXX-XXXX`. Sengaja **tidak** merefaktor `DeviceCode`/`VoucherCode` jadi `HumanCode` bersama; konsistensi format lebih penting daripada DRY di fase ini.
+- **Model**: `App\Models\BoothSession` + scope `ownedBy(Device)` dan `active()`. Relasi `Device hasMany`, `Project hasMany`, `Voucher hasMany`. Enum di-cast; `session_code` di-hide dari serialisasi.
+- **Factory**: `database/factories/BoothSessionFactory.php` dengan state `active()`/`cancelled()`/`completed()`. Default koheren — `device_id`, `project_id`, `voucher_id` berasal dari project & user yang sama.
+
+Backend — transaksi atomik:
+- `App\Services\BoothSessionService::start()` — **satu** `DB::transaction()` dengan urutan lock yang wajib dijaga:
+  1. `Device::lockForUpdate()` (device diblokir lebih dulu)
+  2. cek apakah device sudah punya session `active` → `active_session_exists`
+  3. `VoucherService::redeemLockedForDevice()` → lock voucher, revalidasi terhadap device yang **sudah terkunci**, increment `used_count` + set `last_used_at`
+  4. create `BoothSession` dengan `session_code` unik
+- `VoucherService::redeemLockedForDevice()` — sengaja **tidak** membuka transaction dan **tidak** lock device; caller yang memiliki boundary. Normalisasi `trim` + `mb_strtoupcase` diulang di service agar pemanggil non-HTTP tidak bisa salah lookup. Kegagalan apa pun tidak menyentuh voucher.
+- Konsekuensi yang diuji: device yang di-revoke atau dipindah proyek **sesudah** lock tapi **sebelum** commit tidak akan consumes voucher; kegagalan create session me-rollbackusage voucher.
+- ⚠️ Test memakai SQLite `:memory:`, jadi `lockForUpdate` **tidak** membuktikan row-lock MySQL sungguhan. Integrasi konkuren wajib diuji manual di environment MySQL sebelum produksi.
+
+Backend — API device:
+- `POST /api/v1/session/start` → `Api\Session\StartController` (+ `StartSessionRequest`: `voucher_code` required saat `self_service`, opsional saat `operator`; `mode` wajib).
+- `GET /api/v1/session/current` → `Api\Session\CurrentController` — read-only, tidak pernah membuat/mengubah session.
+- `POST /api/v1/session/{session}/cancel` → `Api\Session\CancelController` — id dari URL **tidak** dipercaya; session dicari lewat `ownedBy($device)`. Session milik device lain → **404** (bukan 403, supaya tidak membocorkan keberadaan).
+- **Device-only**: `ValidatesDeviceAccess` + `tokenCan('device:session')`; token di-revoke otomatis lewat trait yang sudah ada.
+- **Reason failure start** (HTTP 200, `{valid:false, reason}`): `active_session_exists`, `unsupported_mode` (mode `operator` ditolak di MVP), `not_found`, `revoked`, `not_started`, `expired`, `used`, `project_inactive`, `device_unassigned`, `project_mismatch`, `device_revoked`.
+- Response sukses `201` memuat `{valid:true, session:{id,code,status,mode,started_at}, project, experience, voucher:{remaining_uses}}`. `current` mengembalikan bentuk sama dengan `session:null` saat kosong.
+- **Cancel tidak merefund voucher** dan idempoten — cancel berulang aman (tetap sukses), `completed`/`failed` tidak dikonversi jadi `cancelled`.
+- ⚠️ **Pairing ability bertambah**: token device baru = `['device:heartbeat','device:config','device:voucher','device:session']`. Perangkat lama perlu di-revoke + re-pair.
+
+Backend — admin & resource:
+- `Admin\ProjectController::destroy()` — project yang punya `booth_sessions` **diblokir** dari hard delete (FK RESTRICT); diarahkan menonaktifkan project, bukan menghapus riwayat.
+- `App\Http\Resources\ProjectContextResource` diekstrak dan dipakai bersama oleh `DeviceConfigResource` + `BoothSessionResource` agar payload project/experience di config dan session tidak berbeda.
+- `App\Http\Resources\BoothSessionResource` — hanya field aman, tidak ada `user_id`/field internal voucher.
+
+Docs & konfigurasi:
+- `public/openapi.json`: 3 endpoint session + deskripsi ability pair diperbarui; `/scalar` & `/docs` tetap jalan.
+- Tidak ada seeder `booth_sessions` (sengaja — record session selalu lahir dari device nyata; memalsukan session aktif di demo akan membingungkan).
+
+Tests (semua pass):
+- `SessionApiTest` (43 tests / 234 assertions) — start sukses, semua reason failure, active-blocks-start, redemption idempotensi, rollback saat create session gagal, ownership & 404 cross-device, cancel flow, auth/ability, dan anti-leak.
+- `ProjectTest` (24) — regression baru: project dengan riwayat sesi tidak bisa dihapus.
+- `DeviceApiTest` + `VoucherApiTest` — expected pairing ability diperbarui, validate tetap read-only.
+- ⚠️ Catatan test harness: Laravel menyimpan user hasil auth **sepanjang satu test**, jadi test multi-device wajib `forgetGuards()` (helper `asDevice()`) sebelum berganti token. Tanpa itu device kedua diam-diam memakai identitas device pertama dan test ownership terasa "gagal" padahal kodenya benar.
+
+### 13.4 Status Verifikasi Terakhir (✅ semua hijau)
 
 ```
-php artisan test              → 160 passed / 707 assertions
-php artisan migrate           → OK (1 migration baru)
-php artisan db:seed           → OK, idempotent (dijalankan 2×)
-php artisan route:list        → admin.vouchers.* + api/v1/voucher/validate ada; /scalar & /docs ada
-npm run build                 → OK
+php artisan test              → 205 passed / 960 assertions
+php artisan migrate           → OK (migration 2026_09_13_000007)
+php artisan db:seed           → OK
+php artisan route:list        → api/v1/session/{start,current,{session}/cancel} ada; /scalar & /docs ada
+npm run build                 → OK (built in 34.56s)
 public/openapi.json           → valid JSON
 ```
 
-### 13.4 Next Steps (saat sesi dilanjutkan)
+### 13.5 Next Steps (saat sesi dilanjutkan)
 
-1. **Commit Phase 5** (lihat `git status --short`):
+1. **Commit Phase 6** (lihat `git status --short`):
    - A: `git add -A`
-   - B: `git commit -m "✨ feat: Phase 5 - Voucher management & device validation API"`
-   - C: `git pull --rebase` lalu `git push` (remote `origin`, branch `main`; tip = `e79cc38`).
-2. Baru setelah commit: mulai **Phase 6** (bundled sesi booth) — jangan mulai sebelum Phase 5 di-commit.
-3. Referensi cepat Phase 5:
-   - Membuat voucher: halaman `/admin/vouchers` → "Buat Voucher" → sortir kode `VCR-...` dari reveal modal.
-   - Uji API validate: pair device baru (dapat token w/ `device:voucher`), lalu `POST /api/v1/voucher/validate` dengan `code` + `Authorization: Bearer`.
-   - Login demo: `superadmin@photobooth.com` / `admin@photobooth.com` / `booth@photobooth.com` — semua password `password`.
+   - B: `git commit -m "✨ feat: Phase 6 - Booth session & atomic voucher redeem"`
+   - C: `git pull --rebase` lalu `git push` (remote `origin`, branch `main`; tip = `5cf627b`).
+2. Setelah itu, **Phase 7** — countdown → capture → result. Ini fase pertama yang menyentuh media/foto, jadi perlu keputusan terpisah soal storage (local disk vs S3) dan lifecycle file sebelum mulai ngoding.
+3. Referensi cepat Phase 6:
+   - Memulai sesi: pair device baru (token w/ `device:session`), lalu `POST /api/v1/session/start` dengan `voucher_code` + `mode`.
+   - Recovery: `GET /api/v1/session/current` — mengembalikan session aktif device tsb, atau `session:null`.
+   - Cancel: `POST /api/v1/session/{id}/cancel` — idempoten, tidak refund voucher.
+   - ⚠️ Uji start ganda dari device yang sama harus mengembalikan `active_session_exists`, **bukan** membuat session kedua.
+   - ⚠️ Before production: uji konkurensi 2 request start paralel di **MySQL** (bukan SQLite) untuk memastikan `lockForUpdate` menahan double-redeem.
+4. Login demo: `superadmin@photobooth.com` / `admin@photobooth.com` / `booth@photobooth.com` — semua password `password`.

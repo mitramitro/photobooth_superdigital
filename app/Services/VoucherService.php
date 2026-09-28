@@ -38,8 +38,8 @@ class VoucherService
      * Validate a voucher against the business rules for a given device.
      *
      * Validation is a pure read: no usage is incremented, no last_used_at is
-     * touched and no session is created. Phase 6 will add an atomic redeem()
-     * wrapped in DB::transaction + lockForUpdate on top of this service.
+     * touched and no session is created. Consuming a voucher happens only via
+     * redeemLockedForDevice(), inside the caller's transaction.
      *
      * @return array<string, mixed>
      */
@@ -87,6 +87,53 @@ class VoucherService
                 'id' => $project->id,
                 'name' => $project->name,
             ],
+        ];
+    }
+
+    /**
+     * Redeem a voucher on behalf of a device that the caller has already
+     * locked FOR UPDATE.
+     *
+     * CONTRACT — this method deliberately does NOT open a transaction and does
+     * NOT lock the device row: the caller owns the transaction boundary and
+     * the lock order (device first, voucher second). It only locks and
+     * consumes the voucher, then re-validates it against the *locked* device
+     * so a device revoked or reassigned between the pre-flight check and the
+     * commit cannot consume a voucher.
+     *
+     * Any failure returns the same machine-readable reasons as validate() and
+     * leaves the voucher untouched.
+     *
+     * @return array{valid: true, voucher: Voucher}|array{valid: false, reason: string}
+     */
+    public function redeemLockedForDevice(Device $lockedDevice, string $code): array
+    {
+        // Normalised defensively here as well as in the request, so a
+        // non-HTTP caller cannot accidentally look up an untrimmed code.
+        $code = mb_strtoupper(trim($code));
+
+        $voucher = Voucher::query()
+            ->with('project:id,name,status')
+            ->where('code', $code)
+            ->lockForUpdate()
+            ->first();
+
+        if (! $voucher) {
+            return $this->invalid('not_found');
+        }
+
+        $validation = $this->validate($voucher, $lockedDevice);
+
+        if (! $validation['valid']) {
+            return $validation;
+        }
+
+        $voucher->increment('used_count');
+        $voucher->forceFill(['last_used_at' => now()])->save();
+
+        return [
+            'valid' => true,
+            'voucher' => $voucher->refresh(),
         ];
     }
 

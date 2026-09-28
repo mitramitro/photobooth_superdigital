@@ -164,7 +164,7 @@
     "/device/pair": {
       "post": {
         "summary": "Pasangkan Perangkat Booth & Terbitkan Device Token",
-        "description": "Perangkat booth menggunakan kode pairing (PB-XXXX-XXXX) untuk pairing dan menerima Sanctum token yang diikat ke perangkat. Token hanya memiliki ability device:heartbeat dan device:config. Status: 422 kode/platfom salah, 403 perangkat dicabut, 409 sudah dipairing.",
+        "description": "Perangkat booth menggunakan kode pairing (PB-XXXX-XXXX) untuk pairing dan menerima Sanctum token yang diikat ke perangkat. Token memiliki ability device:heartbeat, device:config, dan device:voucher. Status: 422 kode/platfom salah, 403 perangkat dicabut, 409 sudah dipairing.",
         "operationId": "pairDevice",
         "requestBody": {
           "required": true,
@@ -319,6 +319,86 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/voucher/validate": {
+      "post": {
+        "summary": "Validasi Voucher Perangkat Booth",
+        "description": "Memvalidasi kode voucher terhadap perangkat yang sedang assigned ke sebuah proyek. Endpoint ini HANYA mengecek aturan bisnis dan TIDAK melakukan redeem: used_count tidak bertambah, last_used_at tidak diubah, dan tidak ada booth session yang dibuat. Business invalidity dikembalikan dengan HTTP 200 dan reason machine-readable; kegagalan autentikasi tetap 401/403.",
+        "operationId": "validateVoucher",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "code": {
+                    "type": "string",
+                    "example": "VCR-7K4F-92QM",
+                    "description": "Kode voucher, dinormalisasi otomatis (trim + uppercase) di sisi server."
+                  }
+                },
+                "required": ["code"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Hasil validasi (valid atau alasan bisnis tidak valid)",
+            "content": {
+              "application/json": {
+                "examples": {
+                  "valid": {
+                    "summary": "Voucher valid untuk proyek perangkat",
+                    "value": {
+                      "valid": true,
+                      "voucher": {
+                        "code": "VCR-7K4F-92QM",
+                        "remaining_uses": 1,
+                        "expires_at": "2026-12-31",
+                        "project_id": 2
+                      },
+                      "project": {
+                        "id": 2,
+                        "name": "Mall Photobox"
+                      }
+                    }
+                  },
+                  "invalid": {
+                    "summary": "Voucher kadaluarsa",
+                    "value": {
+                      "valid": false,
+                      "reason": "expired"
+                    }
+                  },
+                  "notFound": {
+                    "summary": "Kode tidak ditemukan",
+                    "value": {
+                      "valid": false,
+                      "reason": "not_found"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Token tidak ada atau bukan token perangkat"
+          },
+          "403": {
+            "description": "Token tidak memiliki ability device:voucher atau perangkat telah dicabut"
+          },
+          "422": {
+            "description": "Field code wajib diisi"
           }
         }
       }

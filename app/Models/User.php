@@ -29,6 +29,11 @@ class User extends Authenticatable
         return $this->hasMany(Device::class);
     }
 
+    public function vouchers(): HasMany
+    {
+        return $this->hasMany(Voucher::class);
+    }
+
     /**
      * Get the attributes that should be cast.
      *

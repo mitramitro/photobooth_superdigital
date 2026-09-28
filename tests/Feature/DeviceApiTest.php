@@ -62,7 +62,7 @@ class DeviceApiTest extends TestCase
         $stored = PersonalAccessToken::firstOrFail();
         $this->assertSame(Device::class, $stored->tokenable_type);
         $this->assertSame($device->id, $stored->tokenable_id);
-        $this->assertSame(['device:heartbeat', 'device:config'], $stored->abilities);
+        $this->assertSame(['device:heartbeat', 'device:config', 'device:voucher'], $stored->abilities);
         $this->assertSame('device-pair', $stored->name);
 
         $device->refresh();

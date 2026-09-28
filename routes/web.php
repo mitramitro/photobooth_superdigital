@@ -4,6 +4,7 @@ use App\Enums\UserRole;
 use App\Http\Controllers\Admin\DeviceController;
 use App\Http\Controllers\Admin\ProjectController;
 use App\Http\Controllers\Admin\ProjectExperienceController;
+use App\Http\Controllers\Admin\VoucherController;
 use App\Http\Controllers\ProfileController;
 use App\Support\RoleHome;
 use Illuminate\Support\Facades\Route;
@@ -119,9 +120,11 @@ Route::middleware(['auth', 'verified', 'role:admin,super_admin'])->group(functio
         })->name('wallet');
 
         // Voucher (Promo & Voucher Codes)
-        Route::get('/vouchers', function () {
-            return Inertia::render('Admin/Voucher/Index');
-        })->name('vouchers');
+        Route::post('/vouchers', [VoucherController::class, 'store'])->name('vouchers.store');
+        Route::patch('/vouchers/{voucher}', [VoucherController::class, 'update'])->name('vouchers.update');
+        Route::post('/vouchers/{voucher}/revoke', [VoucherController::class, 'revoke'])->name('vouchers.revoke');
+        Route::get('/vouchers/{voucher}', [VoucherController::class, 'show'])->name('vouchers.show');
+        Route::get('/vouchers', [VoucherController::class, 'index'])->name('vouchers.index');
 
         // Platform (Super Admin — Tenant Monitoring)
         Route::get('/platform', function () {

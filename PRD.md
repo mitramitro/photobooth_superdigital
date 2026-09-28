@@ -432,3 +432,72 @@ MIDTRANS_IS_PRODUCTION=false
 2. Alur lengkap diuji: Landing → Daftar Franchise → Checkout (mode sandbox) → Webhook aktivasi → Admin login → buat operator → Operator login & jalankan sesi → Super Admin pantau tenant.
 3. Semantic role enforcement: operator/anonim tidak bisa menyentuh data admin/tenant lain.
 4. Seluruh halaman admin yang sudah ada minimal tidak menampilkan data statis lagi untuk fitur inti (list berasal dari DB).
+
+---
+
+## 13. Catatan Perubahan & Progress (Changelog Live)
+
+> Bagian ini dicatat secara manual oleh AI coding agent/dev di akhir setiap fase. **Baca dulu sebelum lanjut fase berikutnya** agar konteks tidak hilang meskipun sesi opencode ditutup.
+
+### 13.1 Status Fase
+
+| Fase | Isi | Status | Commit |
+|---|---|---|---|
+| 1 | Fondasi role (enum `UserRole`), routing aware-role, admin nav disederhanakan | ✅ Selesai | `a10be15` |
+| 2–4 | Domain `Project` + `ProjectExperienceSetting`, `Device` management + pairing API + `DeviceCode`, enums Project/Device, policies, middleware role, openapi, seeder | ✅ Selesai | `e79cc38` |
+| 5 | **Voucher Management + Validation API** | ✅ Selesai (test hijau, build ok) — **BELUM di-commit** | — |
+| 6 | Booth session touchpoint (Welcome → Voucher Input → Validate → Atomic Redeem → Booth Session → Countdown → Capture → Result) + printer, gallery, transaction, Midtrans, WebSocket/MQTT, AI, bulk | ⏳ Belum | — |
+
+### 13.2 Yang Sudah Dikerjakan — PHASE 5 (Voucher)
+
+Backend:
+- **DB**: migration `database/migrations/2026_09_12_000006_create_vouchers_table.php` — `vouchers`: `user_id`, `project_id` (tidak null), `code` (unique), `status`, `max_uses`, `used_count`, `valid_from`, `expires_at`, `last_used_at`, `revoked_at`; index `[user_id,status]`, `project_id`, `expires_at`.
+- **Enum**: `App\Enums\VoucherStatus` (`active/used/expired/revoked`).
+- **Code gen**: `App\Support\VoucherCode` — format `VCR-XXXX-XXXX`, tanpa karakter konfusabel, `random_bytes`.
+- **Model**: `App\Models\Voucher` + relasi `User hasMany` & `Project hasMany`. Status efektif **dihitung** (bukan kolom) lewat `effectiveStatus()` / `remainingUses()` / `isUsable()` / scope `effectiveStatus`: prioritas `revoked > expired > used > active`; `valid_from` masa depan = reason `not_started`.
+- **Service**: `App\Services\VoucherService` — `generateUniqueCode()`, `effectiveStatus()`, `remainingUses()`, `validate()` (return array; **tidak** mutasi DB). Siap di-extend `redeem()` utk Phase 6 (`DB::transaction` + `lockForUpdate`).
+- **Policy & Request**: `App\Policies\VoucherPolicy` (admin hanya punya sendiri, super_admin semua, booth 403); `StoreVoucherRequest` (code dari server, bukan frontend), `UpdateVoucherRequest` (max_uses ≥ used_count, project terkunci saat `used_count > 0`, revoked ditolak update).
+- **Controller**: `Admin\VoucherController` — index (search kode/proyek, filter status/proyek, pagination `withQueryString`), store (flash `created_voucher`), show, update, revoke (`revoked_at = now`, bukan delete).
+- **Admin routes**: `admin.vouchers.index|store|show|update|revoke` (`/admin/vouchers...`), route mock lama sudah diganti.
+
+API device:
+- `POST /api/v1/voucher/validate` → `Api\Voucher\ValidateController` (+ `ValidateVoucherRequest`, normalisasi trim+uppercase). Device-only (`ValidatesDeviceAccess` + `tokenCan('device:voucher')`).
+- **Reason failure** (HTTP 200): `not_found`, `revoked`, `not_started`, `expired`, `used`, `project_inactive`, `device_unassigned`, `project_mismatch`. Response valid: `{valid:true, voucher:{code, remaining_uses, expires_at(date), project_id}, project:{id,name}}` — **tanpa** `user_id`/field internal (di-test anti-leak).
+- **Pairing ability bertambah**: token device baru = `['device:heartbeat','device:config','device:voucher']` (PairController).
+  - ⚠️ **Perangkat lama perlu di-revoke + re-pair** agar dapat ability `device:voucher`.
+
+Config/Seed/Docs:
+- `config/photobooth.php` → `voucher.max_uses_cap` (default 100).
+- Seeder `seedSampleVouchers()` **idempotent** (lookup proyek by name): Mall Photobox (1×), Wedding Booth (10×), Self Booth Demo (expired).
+- `public/openapi.json`: path `/voucher/validate` + deskripsi pair diupdate; `/scalar` & `/docs` tetap jalan.
+
+Frontend (React/Inertia):
+- `resources/js/Components/Vouchers/voucherMeta.js` (label/tone/format).
+- `Pages/Admin/Voucher/Index.jsx` di-rewrite jadi page asli: 5 summary card, search, FilterPill status, filter proyek, pagination, table desktop + mobile card, **create modal** + **reveal modal** (kode besar + Salin Kode/ Lihat Detail / Tutup). Estado reveal di-init sekali dari prop agar tombol Tutup benar-benar menutup.
+- `Pages/Admin/Voucher/Show.jsx`: code + copy, info grid, edit form (project terkunci saat dipakai), revoke + ConfirmDialog, card siklus hidup.
+
+Tests (all pass):
+- `VoucherStatusTest` (11), `VoucherWebTest` (21), `VoucherApiTest` (16, termasuk no-side-effect 5× validate & leak check), `DeviceApiTest` ability diperbarui.
+
+### 13.3 Status Verifikasi Terakhir (✅ semua hijau)
+
+```
+php artisan test              → 160 passed / 707 assertions
+php artisan migrate           → OK (1 migration baru)
+php artisan db:seed           → OK, idempotent (dijalankan 2×)
+php artisan route:list        → admin.vouchers.* + api/v1/voucher/validate ada; /scalar & /docs ada
+npm run build                 → OK
+public/openapi.json           → valid JSON
+```
+
+### 13.4 Next Steps (saat sesi dilanjutkan)
+
+1. **Commit Phase 5** (lihat `git status --short`):
+   - A: `git add -A`
+   - B: `git commit -m "✨ feat: Phase 5 - Voucher management & device validation API"`
+   - C: `git pull --rebase` lalu `git push` (remote `origin`, branch `main`; tip = `e79cc38`).
+2. Baru setelah commit: mulai **Phase 6** (bundled sesi booth) — jangan mulai sebelum Phase 5 di-commit.
+3. Referensi cepat Phase 5:
+   - Membuat voucher: halaman `/admin/vouchers` → "Buat Voucher" → sortir kode `VCR-...` dari reveal modal.
+   - Uji API validate: pair device baru (dapat token w/ `device:voucher`), lalu `POST /api/v1/voucher/validate` dengan `code` + `Authorization: Bearer`.
+   - Login demo: `superadmin@photobooth.com` / `admin@photobooth.com` / `booth@photobooth.com` — semua password `password`.

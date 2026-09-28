@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\Device\ConfigController;
 use App\Http\Controllers\Api\Device\HeartbeatController;
 use App\Http\Controllers\Api\Device\PairController;
+use App\Http\Controllers\Api\Voucher\ValidateController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -69,5 +70,6 @@ Route::prefix('v1')->group(function () {
     Route::middleware('auth:sanctum')->group(function () {
         Route::post('/device/heartbeat', HeartbeatController::class);
         Route::get('/device/config', ConfigController::class);
+        Route::post('/voucher/validate', ValidateController::class);
     });
 });

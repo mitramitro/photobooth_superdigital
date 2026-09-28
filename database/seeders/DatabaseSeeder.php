@@ -8,10 +8,13 @@ use App\Enums\ProjectOrientation;
 use App\Enums\ProjectStatus;
 use App\Enums\ProjectType;
 use App\Enums\UserRole;
+use App\Enums\VoucherStatus;
 use App\Models\Device;
 use App\Models\ProjectExperienceSetting;
 use App\Models\User;
+use App\Models\Voucher;
 use App\Support\DeviceCode;
+use App\Support\VoucherCode;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 
@@ -59,6 +62,7 @@ class DatabaseSeeder extends Seeder
 
         $this->seedSampleProjects();
         $this->seedSampleDevices();
+        $this->seedSampleVouchers();
     }
 
     /**
@@ -184,6 +188,71 @@ class DatabaseSeeder extends Seeder
             if ($device->paired_at) {
                 $device->events()->firstOrCreate(['event' => 'paired']);
             }
+        }
+    }
+
+    /**
+     * Sample vouchers for development only, bound to seeded projects by name
+     * lookup (never hardcoded ids). Re-running the seeder updates in place.
+     */
+    private function seedSampleVouchers(): void
+    {
+        $admin = User::where('email', 'admin@photobooth.com')->first();
+
+        if (! $admin) {
+            return;
+        }
+
+        $samples = [
+            [
+                'project' => $admin->projects()->where('name', 'Mall Photobox')->first(),
+                'max_uses' => 1,
+                'valid_from' => null,
+                'expires_at' => null,
+            ],
+            [
+                'project' => $admin->projects()->where('name', 'Wedding Booth')->first(),
+                'max_uses' => 10,
+                'valid_from' => null,
+                'expires_at' => null,
+            ],
+            [
+                'project' => $admin->projects()->where('name', 'Self Booth Demo')->first(),
+                'max_uses' => 1,
+                'valid_from' => now()->subDays(10)->toDateString(),
+                'expires_at' => now()->subDay()->toDateString(),
+            ],
+        ];
+
+        foreach ($samples as $sample) {
+            $project = $sample['project'];
+
+            if (! $project) {
+                continue;
+            }
+
+            $voucher = $admin->vouchers()->where('project_id', $project->id)->first();
+
+            $attributes = [
+                'max_uses' => $sample['max_uses'],
+                'used_count' => $voucher?->used_count ?? 0,
+                'valid_from' => $sample['valid_from'],
+                'expires_at' => $sample['expires_at'],
+            ];
+
+            if ($voucher) {
+                $voucher->update($attributes);
+
+                continue;
+            }
+
+            $admin->vouchers()->create(array_merge($attributes, [
+                'project_id' => $project->id,
+                'code' => VoucherCode::generateUnique(Voucher::pluck('code')),
+                'status' => VoucherStatus::ACTIVE->value,
+                'last_used_at' => null,
+                'revoked_at' => null,
+            ]));
         }
     }
 }

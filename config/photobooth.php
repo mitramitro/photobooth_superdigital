@@ -16,6 +16,19 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Voucher
+    |--------------------------------------------------------------------------
+    |
+    | `max_uses_cap` bounds how large a single voucher's usage limit can be.
+    | Unlimited usage is intentionally not supported yet.
+    |
+    */
+    'voucher' => [
+        'max_uses_cap' => (int) env('PHOTOBOOTH_VOUCHER_MAX_USES_CAP', 100),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Client Release Shells
     |--------------------------------------------------------------------------
     |

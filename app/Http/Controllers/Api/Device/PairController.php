@@ -60,7 +60,7 @@ class PairController extends Controller
 
         DeviceEventService::paired($device);
 
-        $token = $device->createToken('device-pair', ['device:heartbeat', 'device:config']);
+        $token = $device->createToken('device-pair', ['device:heartbeat', 'device:config', 'device:voucher']);
 
         return response()->json([
             'message' => 'Pairing berhasil.',
